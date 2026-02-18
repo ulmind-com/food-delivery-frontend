@@ -1,0 +1,471 @@
+import { useState, useEffect, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { restaurantApi } from "@/api/axios";
+import { useRestaurantStore } from "@/store/useRestaurantStore";
+import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Loader2, Store, MapPin, Navigation, Save, Radio,
+  CheckCircle2, XCircle, Map, RefreshCw, Crosshair,
+} from "lucide-react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Fix Leaflet default marker icons in bundlers
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+});
+
+/* ─── Inline Map Picker ─────────────────────────────────────────────────── */
+interface MapPickerProps {
+  initialLat?: number;
+  initialLng?: number;
+  onLocationSaved: (lat: number, lng: number, address: string) => void;
+}
+
+const MapPicker = ({ initialLat, initialLng, onLocationSaved }: MapPickerProps) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
+
+  const [pickedLat, setPickedLat] = useState<number | null>(initialLat ?? null);
+  const [pickedLng, setPickedLng] = useState<number | null>(initialLng ?? null);
+  const [resolvedAddress, setResolvedAddress] = useState<string>("");
+  const [geocoding, setGeocoding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
+
+  const reverseGeocode = async (lat: number, lng: number) => {
+    setGeocoding(true);
+    setPickedLat(lat);
+    setPickedLng(lng);
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`
+      );
+      const data = await r.json();
+      const addr = data.address || {};
+      const parts = [
+        addr.road,
+        addr.suburb || addr.neighbourhood,
+        addr.city || addr.town || addr.village,
+        addr.state,
+      ].filter(Boolean);
+      setResolvedAddress(parts.join(", ") || data.display_name?.split(",").slice(0, 3).join(", ") || "");
+    } catch {
+      setResolvedAddress("");
+    } finally {
+      setGeocoding(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (leafletMapRef.current) return; // already initialized
+
+    const defaultLat = initialLat ?? 22.5726;
+    const defaultLng = initialLng ?? 88.3639;
+
+    const map = L.map(mapRef.current, {
+      center: [defaultLat, defaultLng],
+      zoom: 15,
+      zoomControl: true,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+
+    marker.on("dragend", () => {
+      const { lat, lng } = marker.getLatLng();
+      reverseGeocode(lat, lng);
+    });
+
+    map.on("click", (e: L.LeafletMouseEvent) => {
+      const { lat, lng } = e.latlng;
+      marker.setLatLng([lat, lng]);
+      reverseGeocode(lat, lng);
+    });
+
+    leafletMapRef.current = map;
+    markerRef.current = marker;
+
+    if (initialLat && initialLng) {
+      reverseGeocode(initialLat, initialLng);
+    }
+
+    setTimeout(() => map.invalidateSize(), 200);
+
+    return () => {
+      map.remove();
+      leafletMapRef.current = null;
+      markerRef.current = null;
+    };
+  }, []);
+
+  const handleGeolocate = () => {
+    if (!leafletMapRef.current || !markerRef.current) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        leafletMapRef.current!.setView([latitude, longitude], 16);
+        markerRef.current!.setLatLng([latitude, longitude]);
+        reverseGeocode(latitude, longitude);
+        setLocating(false);
+      },
+      () => {
+        toast.error("Could not get your location");
+        setLocating(false);
+      },
+      { timeout: 8000 }
+    );
+  };
+
+  const handleSave = async () => {
+    if (pickedLat === null || pickedLng === null) return;
+    setSaving(true);
+    try {
+      await restaurantApi.setLocation({ lat: pickedLat, lng: pickedLng, address: resolvedAddress });
+      onLocationSaved(pickedLat, pickedLng, resolvedAddress);
+      toast.success("📍 Restaurant location saved!");
+    } catch {
+      toast.error("Failed to save location");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Map */}
+      <div className="relative overflow-hidden rounded-2xl border border-border shadow-inner" style={{ height: 320 }}>
+        <div ref={mapRef} className="h-full w-full" />
+
+        {/* Geolocate button overlay */}
+        <button
+          onClick={handleGeolocate}
+          disabled={locating}
+          className="absolute bottom-3 right-3 z-[1000] flex items-center gap-1.5 rounded-xl bg-card px-3 py-2 text-xs font-bold text-foreground shadow-lg border border-border transition-colors hover:bg-accent"
+        >
+          {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crosshair className="h-3.5 w-3.5 text-primary" />}
+          My Location
+        </button>
+      </div>
+
+      {/* Resolved address preview */}
+      <div className="flex items-start gap-3 rounded-xl bg-muted/50 px-4 py-3">
+        <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+        <div className="flex-1 min-w-0">
+          {geocoding ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span className="text-sm">Resolving address…</span>
+            </div>
+          ) : resolvedAddress ? (
+            <p className="text-sm font-medium text-foreground leading-snug">{resolvedAddress}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Click or drag the pin to pick a location</p>
+          )}
+          {pickedLat !== null && pickedLng !== null && (
+            <p className="mt-0.5 text-[10px] font-mono text-muted-foreground">
+              {pickedLat.toFixed(6)}, {pickedLng.toFixed(6)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Save button */}
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        onClick={handleSave}
+        disabled={pickedLat === null || saving || geocoding}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-bold text-primary-foreground shadow-md transition-all hover:brightness-110 disabled:opacity-50"
+      >
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+        {saving ? "Saving Location…" : "Save GPS Location"}
+      </motion.button>
+    </div>
+  );
+};
+
+/* ─── Main Component ────────────────────────────────────────────────────── */
+const RestaurantSettings = () => {
+  const queryClient = useQueryClient();
+  const setRestaurant = useRestaurantStore((s) => s.setRestaurant);
+
+  const { data: restaurant, isLoading } = useQuery({
+    queryKey: ["restaurant"],
+    queryFn: () => restaurantApi.get().then((r) => r.data),
+  });
+
+  const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [form, setForm] = useState({ name: "", address: "", deliveryRadius: "" });
+
+  useEffect(() => {
+    if (restaurant) {
+      setForm({
+        name: restaurant.name || "",
+        address: restaurant.address || "",
+        deliveryRadius: String(restaurant.deliveryRadius || ""),
+      });
+    }
+  }, [restaurant]);
+
+  const handleToggle = async (isOpen: boolean) => {
+    setToggling(true);
+    try {
+      const res = await restaurantApi.update({ isOpen });
+      setRestaurant(res.data);
+      queryClient.invalidateQueries({ queryKey: ["restaurant"] });
+      toast.success(isOpen ? "Restaurant is now OPEN 🟢" : "Restaurant is now CLOSED 🔴");
+    } catch {
+      toast.error("Failed to update status");
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await restaurantApi.update({
+        name: form.name,
+        address: form.address,
+        deliveryRadius: Number(form.deliveryRadius) || undefined,
+      });
+      setRestaurant(res.data);
+      queryClient.invalidateQueries({ queryKey: ["restaurant"] });
+      toast.success("Settings saved ✅");
+    } catch {
+      toast.error("Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleLocationSaved = (lat: number, lng: number, address: string) => {
+    if (address) setForm((f) => ({ ...f, address }));
+    queryClient.invalidateQueries({ queryKey: ["restaurant"] });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />
+        ))}
+      </div>
+    );
+  }
+
+  const isOpen = restaurant?.isOpen ?? false;
+  const hasLocation = restaurant?.location?.lat && restaurant?.location?.lng;
+
+  return (
+    <div className="space-y-6 max-w-5xl">
+
+      {/* Page header */}
+      <div>
+        <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Restaurant Settings</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Manage your restaurant's status, details, and location</p>
+      </div>
+
+      {/* ── Status Toggle Card ─────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={`relative overflow-hidden rounded-2xl border p-6 shadow-sm transition-colors ${isOpen
+          ? "border-green-500/30 bg-green-500/5"
+          : "border-destructive/20 bg-destructive/5"
+          }`}
+      >
+        {/* Subtle glow */}
+        <div className={`pointer-events-none absolute inset-0 rounded-2xl opacity-20 ${isOpen ? "bg-gradient-to-br from-green-400/30 to-transparent" : "bg-gradient-to-br from-red-400/20 to-transparent"
+          }`} />
+
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-inner ${isOpen ? "bg-green-500/15" : "bg-destructive/10"
+              }`}>
+              <Store className={`h-7 w-7 ${isOpen ? "text-green-600" : "text-destructive"}`} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                {isOpen
+                  ? <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  : <XCircle className="h-4 w-4 text-destructive" />
+                }
+                <p className={`text-lg font-extrabold ${isOpen ? "text-green-700 dark:text-green-400" : "text-destructive"}`}>
+                  {isOpen ? "Restaurant is LIVE" : "Restaurant is OFFLINE"}
+                </p>
+              </div>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {isOpen ? "Customers can place orders right now" : "Customers cannot place orders"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {toggling && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            <Switch
+              checked={isOpen}
+              onCheckedChange={handleToggle}
+              disabled={toggling}
+              className="h-7 w-12 data-[state=checked]:bg-green-500"
+            />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ── Details + GPS side by side ──────────────────────────────── */}
+      <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+
+        {/* Left — Details Form */}
+        <motion.form
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 }}
+          onSubmit={handleSave}
+          className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5"
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <Store className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Restaurant Details</h3>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Restaurant Name
+              </Label>
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="My Amazing Restaurant"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Address
+              </Label>
+              <Input
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="123 Food Street, City"
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Delivery Radius (km)
+              </Label>
+              <Input
+                type="number"
+                value={form.deliveryRadius}
+                onChange={(e) => setForm({ ...form, deliveryRadius: e.target.value })}
+                placeholder="10"
+                className="mt-1.5"
+                min={1}
+              />
+            </div>
+          </div>
+
+          <motion.button
+            type="submit"
+            disabled={saving}
+            whileTap={{ scale: 0.97 }}
+            className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:brightness-110 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {saving ? "Saving…" : "Save Changes"}
+          </motion.button>
+        </motion.form>
+
+        {/* Right — GPS Location Picker */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+          className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden"
+        >
+          {/* Header — clickable to expand/collapse */}
+          <button
+            type="button"
+            onClick={() => setShowMap((v) => !v)}
+            className="flex w-full items-center justify-between px-6 py-5 hover:bg-accent/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${hasLocation ? "bg-primary/10" : "bg-muted"}`}>
+                <Map className={`h-5 w-5 ${hasLocation ? "text-primary" : "text-muted-foreground"}`} />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold text-foreground">GPS Location</p>
+                {hasLocation ? (
+                  <p className="text-xs text-muted-foreground font-mono">
+                    {restaurant.location.lat.toFixed(5)}, {restaurant.location.lng.toFixed(5)}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No location set — click to pick on map</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {hasLocation && (
+                <span className="rounded-full bg-green-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-green-600">
+                  Set
+                </span>
+              )}
+              <motion.div animate={{ rotate: showMap ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <Navigation className="h-4 w-4 text-muted-foreground rotate-90" />
+              </motion.div>
+            </div>
+          </button>
+
+          {/* Collapsible map section */}
+          <AnimatePresence>
+            {showMap && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="border-t border-border px-6 pb-6 pt-5">
+                  <p className="mb-4 text-xs text-muted-foreground">
+                    Click anywhere on the map or drag the pin to set your restaurant's GPS location.
+                    This is used for delivery radius calculations.
+                  </p>
+                  <MapPicker
+                    initialLat={restaurant?.location?.lat}
+                    initialLng={restaurant?.location?.lng}
+                    onLocationSaved={handleLocationSaved}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+      </div>{/* end grid */}
+
+    </div>
+  );
+};
+
+export default RestaurantSettings;

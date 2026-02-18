@@ -3,10 +3,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { menuApi, adminApi } from "@/api/axios";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Pencil, Trash2, Loader2 } from "lucide-react";
+import { Pencil, Trash2, Loader2, Tag } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { resolveImageURL } from "@/lib/image-utils";
 import EditProductModal from "@/components/EditProductModal";
+import DiscountModal from "@/components/DiscountModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ const AdminMenuTable = () => {
   const queryClient = useQueryClient();
   const [editItem, setEditItem] = useState<any | null>(null);
   const [deleteItem, setDeleteItem] = useState<any | null>(null);
+  const [discountItem, setDiscountItem] = useState<any | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const { data: menuItems, isLoading } = useQuery({
@@ -117,10 +119,24 @@ const AdminMenuTable = () => {
                 {getCategoryName(item.category)}
               </span>
 
-              {/* Price */}
-              <span className="text-sm font-bold text-foreground">
-                ₹{item.price || item.variants?.[0]?.price || 0}
-              </span>
+              {/* Price & Discount */}
+              <div className="flex flex-col">
+                <span className="text-sm font-bold text-foreground">
+                  ₹{item.price || item.variants?.[0]?.price || 0}
+                </span>
+                {item.discountPercentage > 0 && (
+                  <div className="mt-1 flex flex-col items-start gap-0.5">
+                    <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                      {item.discountPercentage}% OFF
+                    </span>
+                    {item.discountExpiresAt && (
+                      <span className="text-[10px] text-muted-foreground">
+                        Exp: {new Date(item.discountExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Status toggle */}
               <div className="flex items-center gap-2">
@@ -147,6 +163,15 @@ const AdminMenuTable = () => {
                 >
                   <Pencil className="h-4 w-4" />
                 </button>
+                <div className="h-4 w-px bg-border" />
+                <button
+                  onClick={() => setDiscountItem(item)}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-orange-500 transition-colors hover:bg-orange-50 dark:hover:bg-orange-900/10"
+                  title="Discount"
+                >
+                  <Tag className="h-4 w-4" />
+                </button>
+                <div className="h-4 w-px bg-border" />
                 <button
                   onClick={() => setDeleteItem(item)}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-destructive transition-colors hover:bg-destructive/10"
@@ -169,6 +194,16 @@ const AdminMenuTable = () => {
 
       {/* Edit Modal */}
       <EditProductModal open={!!editItem} onClose={() => setEditItem(null)} item={editItem} />
+
+      {/* Discount Modal */}
+      {discountItem && (
+        <DiscountModal
+          isOpen={!!discountItem}
+          onClose={() => setDiscountItem(null)}
+          item={discountItem}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["admin-menu"] })}
+        />
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>

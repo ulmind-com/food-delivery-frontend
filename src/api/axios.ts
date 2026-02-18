@@ -81,6 +81,9 @@ export const menuApi = {
   getCategoryById: (id: string) => api.get(`/categories/${id}`),
   getProductById: (id: string) => api.get(`/menu/${id}`),
   getAdminMenu: () => api.get("/menu/admin"),
+  applyDiscount: (id: string, data: { percentage: number; duration: { hours: number; minutes: number } }) =>
+    api.post(`/menu/${id}/discount`, data),
+  removeDiscount: (id: string) => api.delete(`/menu/${id}/discount`),
 };
 
 // ─── Category Admin ─────────────────────────

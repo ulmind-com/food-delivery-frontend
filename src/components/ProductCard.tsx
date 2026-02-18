@@ -17,6 +17,10 @@ interface ProductCardProps {
     type?: "Veg" | "Non-Veg";
     category?: string | { _id: string; name: string };
     variants?: { name: string; price: number }[];
+    hasDiscount?: boolean;
+    originalPrice?: number;
+    discountPercentage?: number;
+    discountExpiresAt?: string;
   };
 }
 
@@ -91,7 +95,15 @@ const ProductCard = ({ item }: ProductCardProps) => {
             <h3 className="text-base font-bold leading-tight text-foreground">
               {item.name}
             </h3>
-            <p className="mt-0.5 text-sm font-semibold text-foreground">₹{displayPrice}</p>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
+              <span className="text-sm font-semibold text-foreground">₹{displayPrice}</span>
+              {item.hasDiscount && item.originalPrice && (
+                <>
+                  <span className="text-xs text-muted-foreground line-through">₹{item.originalPrice}</span>
+                  <span className="text-xs font-bold text-swiggy-orange uppercase">{item.discountPercentage}% OFF</span>
+                </>
+              )}
+            </div>
             {item.description && (
               <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                 {item.description}
@@ -110,6 +122,11 @@ const ProductCard = ({ item }: ProductCardProps) => {
               loading="lazy"
             />
             <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/20 to-transparent" />
+            {item.hasDiscount && (
+              <div className="absolute top-0 left-0 bg-swiggy-orange text-white text-[10px] font-bold px-2 py-1 rounded-tl-xl rounded-br-lg shadow-sm">
+                {item.discountPercentage}% OFF
+              </div>
+            )}
           </div>
 
           {/* Add / Counter */}

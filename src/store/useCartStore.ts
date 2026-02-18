@@ -76,16 +76,43 @@ export const useCartStore = create<CartState>()((set, get) => ({
     try {
       const res = await cartApi.get();
       const data = res.data;
-      const formattedItems: CartItem[] = (data.items || []).map((item: any) => ({
-        _id: item.product?._id || item._id,
-        itemId: item._id, // This is the cart-item ID for PUT/DELETE
-        name: item.name || item.product?.name || "Unknown",
-        price: item.price,
-        image: item.imageURL || item.product?.imageURL || "/placeholder.svg",
-        quantity: item.quantity,
-        variant: item.variant,
-        type: item.type || item.product?.type,
-      }));
+      const formattedItems: CartItem[] = (data.items || []).map((item: any) => {
+        const product = item.product || {};
+        let currentPrice = item.price; // Default to stored price
+
+        // Recalculate based on product data if available (fixes stale/incorrect backend cart prices)
+        if (product && product._id) {
+          let base = product.price;
+          // If variant exists, try to find its price
+          if (item.variant && Array.isArray(product.variants)) {
+            const v = product.variants.find((v: any) => v.name === item.variant);
+            if (v) base = v.price;
+          }
+
+          // Apply discount if applicable
+          if (base && product.discountPercentage > 0) {
+            const isExpired = product.discountExpiresAt && new Date(product.discountExpiresAt) < new Date();
+            if (!isExpired) {
+              currentPrice = Math.round(base * (1 - product.discountPercentage / 100));
+            } else {
+              currentPrice = base;
+            }
+          } else if (base) {
+            currentPrice = base; // No discount, ensure we match current product price
+          }
+        }
+
+        return {
+          _id: product._id || item._id,
+          itemId: item._id, // This is the cart-item ID for PUT/DELETE
+          name: item.name || product.name || "Unknown",
+          price: currentPrice,
+          image: item.imageURL || product.imageURL || "/placeholder.svg",
+          quantity: item.quantity,
+          variant: item.variant,
+          type: item.type || product.type,
+        };
+      });
       // Fetch bill details from dedicated bill API
       let bill = { itemsTotal: 0, shipping: 0, discount: 0, finalTotal: 0, appliedCoupon: null as any };
       try {
@@ -95,11 +122,15 @@ export const useCartStore = create<CartState>()((set, get) => ({
         // Fallback to cart data if bill endpoint fails
       }
 
+      // Re-calculate totals locally if bill API is also returning stale data (optional but safer)
+      const localTotal = calcTotal(formattedItems);
+      // We prefer local calculation for itemsTotal to ensure consistency with the displayed prices
+
       set({
         items: formattedItems,
-        totalPrice: bill.itemsTotal || data.totalPrice || 0,
+        totalPrice: localTotal, // Use local total to match the recalculated prices
         discountAmount: bill.discount || 0,
-        finalPrice: bill.finalTotal || data.totalPrice || 0,
+        finalPrice: localTotal + (bill.shipping || 0) - (bill.discount || 0), // Adjust final accordingly
         deliveryFee: bill.shipping || 0,
         tax: 0,
         appliedCoupon: bill.appliedCoupon || data.appliedCoupon || null,
@@ -119,7 +150,7 @@ export const useCartStore = create<CartState>()((set, get) => ({
     if (existing) {
       nextItems = prev.map((i) =>
         i._id === product._id && i.variant === product.variant
-          ? { ...i, quantity: i.quantity + 1 }
+          ? { ...i, quantity: i.quantity + 1, price: product.price } // Update price in case it changed
           : i
       );
     } else {

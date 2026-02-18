@@ -182,9 +182,19 @@ export function ProductDetailDrawer({
                                         </h2>
 
                                         {/* Price */}
-                                        <p className="mt-1 text-xl font-bold text-primary">
-                                            ₹{displayPrice}
-                                        </p>
+                                        <div className="mt-1 flex items-baseline gap-3">
+                                            <p className="text-xl font-bold text-primary">
+                                                ₹{displayPrice}
+                                            </p>
+                                            {product.hasDiscount && product.originalPrice && (
+                                                <>
+                                                    <span className="text-sm text-muted-foreground line-through">₹{product.originalPrice}</span>
+                                                    <span className="rounded-md bg-swiggy-orange/10 px-2 py-0.5 text-xs font-bold text-swiggy-orange uppercase border border-swiggy-orange/20">
+                                                        {product.discountPercentage}% OFF
+                                                    </span>
+                                                </>
+                                            )}
+                                        </div>
 
                                         <div className="my-5 h-px w-full bg-border" />
 

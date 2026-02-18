@@ -8,37 +8,34 @@ import { orderApi, restaurantApi } from "@/api/axios";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import AddressManager from "@/components/AddressManager";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
-import { CreditCard, Banknote, ArrowLeft, Loader2, ShieldCheck, MapPin } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { CreditCard, Banknote, ArrowLeft, Loader2, MapPin, Home, Briefcase, Minus, Plus, ChevronRight, Clock } from "lucide-react";
 
 type PaymentMethod = "ONLINE" | "COD";
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { items, totalPrice, discountAmount, finalPrice, deliveryFee, tax, appliedCoupon, clearCart } = useCartStore();
+  const { items, totalPrice, discountAmount, finalPrice, deliveryFee, tax, appliedCoupon, clearCart, incrementItem, decrementItem } = useCartStore();
   const { user } = useAuthStore();
-
   const { restaurant, setRestaurant, setLoading } = useRestaurantStore();
-  const isRestaurantClosed = restaurant && !restaurant.isOpen;
-
-  // Refresh restaurant status on mount
-  useEffect(() => {
-    restaurantApi
-      .get()
-      .then((res) => setRestaurant(res.data))
-      .catch(() => setLoading(false));
-  }, [setRestaurant, setLoading]);
-
   const { selectedAddress: storedAddress } = useLocationStore();
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("ONLINE");
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [selectedAddressObj, setSelectedAddressObj] = useState<any>(null);
   const [selectedAddressText, setSelectedAddressText] = useState("");
+  const [isSelectingAddress, setIsSelectingAddress] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const { payNow, loading: paymentLoading } = useRazorpay();
 
-  // Pre-select the address the user chose on the Addresses page
+  const isRestaurantClosed = restaurant && !restaurant.isOpen;
+
+  // Sync restaurant status
+  useEffect(() => {
+    restaurantApi.get().then((res) => setRestaurant(res.data)).catch(() => setLoading(false));
+  }, [setRestaurant, setLoading]);
+
+  // Sync address
   useEffect(() => {
     if (storedAddress && !selectedAddressId) {
       const full = [
@@ -52,30 +49,23 @@ const CheckoutPage = () => {
       setSelectedAddressObj(storedAddress);
       setSelectedAddressText(full);
     }
-  }, [storedAddress]);
+  }, [storedAddress, selectedAddressId]);
 
   const isLoading = placingOrder || paymentLoading;
-
-  if (items.length === 0) {
-    return (
-      <div className="container mx-auto max-w-2xl px-4 py-20 text-center">
-        <MapPin className="mx-auto h-12 w-12 text-muted-foreground/30" />
-        <h2 className="mt-4 text-lg font-bold text-foreground">Your cart is empty</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Add items to your cart before checkout.</p>
-        <button onClick={() => navigate("/")} className="mt-6 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground">
-          Browse Menu
-        </button>
-      </div>
-    );
-  }
-
-  const orderItems = items.map((i) => ({ product: i._id, quantity: i.quantity, variant: i.variant || "Standard", price: i.price }));
+  const deliveryTime = 30; // Mock delivery time
 
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) { toast.error("Please select a delivery address"); return; }
 
+    // Prepare items
+    const orderItems = items.map((i) => ({
+      product: i._id,
+      quantity: i.quantity,
+      variant: i.variant || "Standard",
+      price: i.price
+    }));
+
     if (paymentMethod === "COD") {
-      // ─── COD: Create order directly ───
       setPlacingOrder(true);
       try {
         const res = await orderApi.placeOrder({
@@ -88,18 +78,15 @@ const CheckoutPage = () => {
           deliveryCoordinates: selectedAddressObj?.coordinates || undefined,
           paymentMethod: "COD",
         });
-        const orderId = res.data?.order?._id || res.data?._id;
         toast.success("Order placed successfully! 🎉");
         clearCart();
-        navigate(orderId ? `/orders/${orderId}` : "/my-orders");
+        navigate(`/orders/${res.data?.order?._id || res.data?._id}`);
       } catch (err: any) {
         toast.error(err.response?.data?.message || "Failed to place order");
       } finally {
         setPlacingOrder(false);
       }
     } else {
-      // ─── ONLINE: Verify-then-Create flow ───
-      // Step 1 & 2: Create Razorpay order + open modal (NO DB order yet)
       payNow({
         items: orderItems,
         deliveryAddress: selectedAddressObj || selectedAddressId,
@@ -108,7 +95,6 @@ const CheckoutPage = () => {
         userName: user?.name,
         userEmail: user?.email,
         onSuccess: async (paymentDetails) => {
-          // Step 3: Payment confirmed → NOW create DB order
           setPlacingOrder(true);
           try {
             const res = await orderApi.placeOrder({
@@ -124,13 +110,11 @@ const CheckoutPage = () => {
               razorpayPaymentId: paymentDetails.razorpay_payment_id,
               razorpaySignature: paymentDetails.razorpay_signature,
             });
-            const orderId = res.data?.order?._id || res.data?._id;
             toast.success("Payment successful! Order placed! 🎉");
             clearCart();
-            navigate(orderId ? `/orders/${orderId}` : "/my-orders");
+            navigate(`/orders/${res.data?.order?._id || res.data?._id}`);
           } catch (err: any) {
-            // Critical edge case: payment succeeded but order creation failed
-            toast.error("Payment received but order creation failed. Please contact support.", { duration: 10000 });
+            toast.error("Payment received but order creation failed. Contact support.");
           } finally {
             setPlacingOrder(false);
           }
@@ -140,105 +124,227 @@ const CheckoutPage = () => {
     }
   };
 
-  return (
-    <div className="container mx-auto max-w-3xl px-4 py-8">
-      <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
-
-      <h1 className="mb-8 text-2xl font-extrabold text-foreground">Checkout</h1>
-
-      <div className="grid gap-6 md:grid-cols-[1fr_320px]">
-        {/* Left */}
-        <div className="space-y-6">
-          {/* Address */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <AddressManager
-              selectedAddressId={selectedAddressId}
-              onSelect={(id, text, addressObj) => {
-                setSelectedAddressId(id);
-                setSelectedAddressText(text);
-                setSelectedAddressObj(addressObj || null);
-              }}
-            />
-          </div>
-
-          {/* Payment Method */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h3 className="mb-4 text-base font-bold text-foreground">Payment Method</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {([
-                { method: "ONLINE" as const, icon: CreditCard, label: "Pay Online", desc: "Razorpay" },
-                { method: "COD" as const, icon: Banknote, label: "Cash on Delivery", desc: "Pay at door" },
-              ]).map(({ method, icon: Icon, label, desc }) => (
-                <motion.button
-                  key={method}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setPaymentMethod(method)}
-                  className={`flex flex-col items-center gap-2 rounded-xl border-2 p-5 transition-all ${paymentMethod === method
-                    ? "border-primary bg-primary/5 shadow-md"
-                    : "border-border bg-card hover:border-muted-foreground/30"
-                    }`}
-                >
-                  <Icon className={`h-8 w-8 ${paymentMethod === method ? "text-primary" : "text-muted-foreground"}`} />
-                  <span className="text-sm font-bold text-foreground">{label}</span>
-                  <span className="text-[10px] text-muted-foreground">{desc}</span>
-                </motion.button>
-              ))}
-            </div>
-          </div>
+  if (items.length === 0) {
+    return (
+      <div className="flex h-[80vh] flex-col items-center justify-center p-6 text-center">
+        <div className="mb-4 rounded-full bg-green-50 p-6">
+          <MapPin className="h-10 w-10 text-green-600" />
         </div>
+        <h2 className="text-xl font-bold text-foreground">Your cart is empty</h2>
+        <p className="mt-2 text-muted-foreground">Add items from the menu to get started.</p>
+        <button onClick={() => navigate("/")} className="mt-6 rounded-xl bg-primary px-8 py-3 font-semibold text-primary-foreground">
+          Browse Menu
+        </button>
+      </div>
+    );
+  }
 
-        {/* Right — Bill Summary */}
-        <div className="h-fit space-y-4">
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h3 className="mb-4 text-base font-bold text-foreground">Order Summary</h3>
-            <div className="max-h-48 space-y-2 overflow-y-auto">
-              {items.map((item) => (
-                <div key={item.itemId || item._id} className="flex justify-between text-sm">
-                  <span className="text-foreground">{item.name} × {item.quantity}</span>
-                  <span className="font-semibold text-foreground">₹{(item.price * item.quantity).toFixed(0)}</span>
-                </div>
-              ))}
-            </div>
+  const AddressIcon = selectedAddressObj?.type === "WORK" ? Briefcase : selectedAddressObj?.type === "HOME" ? Home : MapPin;
 
-            <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
-              <div className="flex justify-between"><span className="text-muted-foreground">Item Total</span><span>₹{totalPrice.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>₹{deliveryFee.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>₹{tax.toFixed(2)}</span></div>
-              {discountAmount > 0 && appliedCoupon && (
-                <div className="flex justify-between font-medium text-emerald-600 dark:text-emerald-400">
-                  <span>Discount ({appliedCoupon.code})</span><span>-₹{discountAmount.toFixed(2)}</span>
+  return (
+    <div className="min-h-screen bg-gray-50/50 pb-32 dark:bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-30 flex items-center bg-background px-4 py-4 shadow-sm">
+        <button onClick={() => navigate(-1)} className="mr-4 rounded-full p-1 hover:bg-accent">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-lg font-bold">Checkout</h1>
+      </header>
+
+      <div className="mx-auto max-w-lg space-y-4 p-4">
+        {/* Delivery Address Card */}
+        <section className="rounded-2xl bg-card p-4 shadow-sm border border-border/50">
+          {!isSelectingAddress && selectedAddressId ? (
+            <div className="flex items-start justify-between">
+              <div className="flex gap-3">
+                <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <AddressIcon className="h-5 w-5" />
                 </div>
-              )}
-              <div className="flex justify-between border-t border-border pt-2 text-base font-extrabold text-foreground">
-                <span>Total</span><span>₹{finalPrice.toFixed(2)}</span>
+                <div>
+                  <h3 className="font-bold text-foreground flex items-center gap-2">
+                    Delivery to {selectedAddressObj?.type === "HOME" ? "Home" : selectedAddressObj?.type === "WORK" ? "Work" : "Address"}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{selectedAddressText}</p>
+                </div>
               </div>
+              <button
+                onClick={() => setIsSelectingAddress(true)}
+                className="rounded-lg px-3 py-1 text-xs font-bold text-primary hover:bg-primary/10 border border-primary/20"
+              >
+                Change
+              </button>
             </div>
-          </div>
-
-          {isRestaurantClosed && (
-            <div className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-2.5 text-center text-sm font-semibold text-destructive">
-              Restaurant is currently offline
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold">Select Delivery Address</h3>
+                {isSelectingAddress && selectedAddressId && (
+                  <button onClick={() => setIsSelectingAddress(false)} className="text-xs font-medium text-muted-foreground">Cancel</button>
+                )}
+              </div>
+              <AddressManager
+                selectedAddressId={selectedAddressId}
+                onSelect={(id, text, obj) => {
+                  setSelectedAddressId(id);
+                  setSelectedAddressText(text);
+                  setSelectedAddressObj(obj);
+                  setIsSelectingAddress(false);
+                }}
+              />
             </div>
           )}
+        </section>
 
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={handlePlaceOrder}
-            disabled={isLoading || !!isRestaurantClosed}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-base font-extrabold text-primary-foreground shadow-lg transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <>
-                <ShieldCheck className="h-5 w-5" />
-                {paymentMethod === "COD" ? `Place Order — ₹${finalPrice.toFixed(0)}` : `Pay & Order — ₹${finalPrice.toFixed(0)}`}
-              </>
+        {!isSelectingAddress && (
+          <>
+            {/* Delivery Estimate */}
+            <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-4 dark:bg-orange-900/10">
+              <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+              <p className="text-sm font-semibold text-orange-700 dark:text-orange-300">
+                Estimated Delivery in <span className="font-bold">{deliveryTime} mins</span>
+              </p>
+            </div>
+
+            {/* Items List */}
+            <section className="rounded-2xl bg-card p-4 shadow-sm border border-border/50">
+              <div className="divide-y divide-border">
+                {items.map((item) => (
+                  <div key={item.itemId || item._id} className="flex gap-4 py-4 first:pt-0 last:pb-0">
+                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-muted">
+                      <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="flex flex-1 flex-col justify-between">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-semibold text-sm line-clamp-1">{item.name}</h4>
+                          <p className="text-xs text-muted-foreground">{item.variant || "Standard"}</p>
+                        </div>
+                        <div className="flex items-center h-7 rounded-lg border border-border bg-background">
+                          <button
+                            onClick={() => decrementItem(item.itemId)}
+                            className="flex h-full w-7 items-center justify-center text-primary hover:bg-primary/10 rounded-l-lg transition-colors"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-6 text-center text-xs font-bold text-foreground">{item.quantity}</span>
+                          <button
+                            onClick={() => incrementItem(item.itemId)}
+                            className="flex h-full w-7 items-center justify-center text-primary hover:bg-primary/10 rounded-r-lg transition-colors"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="font-bold text-sm">₹{item.price * item.quantity}</span>
+                        {item.quantity > 1 && <span className="text-xs text-muted-foreground">₹{item.price} each</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => navigate("/?category=all")}
+                className="mt-4 flex w-full items-center gap-2 text-sm font-semibold text-primary hover:text-primary/80"
+              >
+                <Plus className="h-4 w-4" /> Add more items
+              </button>
+            </section>
+
+            {/* Bill Summary */}
+            <section className="rounded-2xl bg-card p-4 shadow-sm border border-border/50">
+              <h3 className="mb-3 font-bold text-sm">Bill Summary</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Item total</span>
+                  <span>₹{totalPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Delivery fee</span>
+                  <span>₹{deliveryFee.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>GST</span>
+                  <span>₹{tax.toFixed(2)}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <span>Item Discount</span>
+                    <span>-₹{discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="pt-3 mt-3 border-t border-dashed border-border flex justify-between items-center">
+                  <span className="font-bold">To Pay</span>
+                  <span className="font-extrabold text-lg">₹{finalPrice.toFixed(0)}</span>
+                </div>
+              </div>
+            </section>
+
+            {/* Savings Banner */}
+            {discountAmount > 0 && (
+              <div className="rounded-xl bg-green-50 p-3 text-center text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                You Saved ₹{discountAmount.toFixed(0)} on this order! 🎉
+              </div>
             )}
-          </motion.button>
-        </div>
+
+            {/* Payment & Order Button (Fixed Bottom) */}
+            <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+              <div className="mx-auto max-w-lg space-y-3">
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setPaymentMethod("ONLINE")}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border p-3 transition-all ${paymentMethod === "ONLINE"
+                      ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
+                      : "border-border hover:bg-accent"
+                      }`}
+                  >
+                    <img src="/razorpay.svg" alt="Razorpay" className="h-6 w-auto object-contain" />
+                    <span className="text-sm font-bold">Pay Online</span>
+                    {paymentMethod === "ONLINE" && <div className="ml-auto h-2 w-2 rounded-full bg-primary" />}
+                  </button>
+
+                  <button
+                    onClick={() => setPaymentMethod("COD")}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border p-3 transition-all ${paymentMethod === "COD"
+                      ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
+                      : "border-border hover:bg-accent"
+                      }`}
+                  >
+                    <Banknote className={`h-5 w-5 ${paymentMethod === "COD" ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="text-sm font-bold">Cash</span>
+                    {paymentMethod === "COD" && <div className="ml-auto h-2 w-2 rounded-full bg-primary" />}
+                  </button>
+                </div>
+
+                {isRestaurantClosed ? (
+                  <div className="rounded-xl bg-destructive/10 p-3 text-center font-bold text-destructive">
+                    Restaurant is currently closed
+                  </div>
+                ) : (
+                  <button
+                    onClick={handlePlaceOrder}
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-between rounded-xl bg-primary p-4 text-primary-foreground shadow-lg hover:brightness-110 disabled:opacity-70 transition-all active:scale-[0.98]"
+                  >
+                    {isLoading ? (
+                      <div className="flex w-full justify-center"><Loader2 className="animate-spin" /></div>
+                    ) : (
+                      <>
+                        <div className="text-left">
+                          <p className="text-xs text-primary-foreground/80 uppercase font-semibold">Total</p>
+                          <p className="font-bold text-lg leading-none">₹{finalPrice.toFixed(0)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 font-bold">
+                          {paymentMethod === "COD" ? "Place Order" : "Pay Now"} <ChevronRight className="h-5 w-5" />
+                        </div>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

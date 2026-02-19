@@ -78,6 +78,7 @@ export function ProductDetailDrawer({
                 price: product.price,
                 image: imageUrl,
                 type: product.type,
+                category: typeof product.category === 'object' ? product.category._id : product.category,
             });
             // addItem adds 1; increment for remaining qty
             // We need to wait for cart to refresh so itemId is available

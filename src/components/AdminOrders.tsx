@@ -364,6 +364,17 @@ const AdminOrders = () => {
               )}
             </DialogHeader>
 
+            {selectedOrder && (selectedOrder.status === "CANCELLED" || selectedOrder.orderStatus === "CANCELLED") && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900/30 dark:bg-red-950/20 dark:text-red-200">
+                <p className="font-bold flex items-center gap-2">
+                  <XCircle className="h-4 w-4" /> Cancellation Reason
+                </p>
+                <p className="mt-1 ml-6 text-red-700/90 dark:text-red-300/90">
+                  {selectedOrder.cancellationReason || "No reason provided."}
+                </p>
+              </div>
+            )}
+
             {selectedOrder && (
               <div className="space-y-5 text-sm">
                 {/* Customer & Payment Grid */}
@@ -410,82 +421,91 @@ const AdminOrders = () => {
                   </div>
                 </div>
 
-                {/* Delivery Address */}
-                {(selectedOrder.address || selectedOrder.deliveryAddress) && (
-                  <div className="rounded-xl border border-border bg-muted/30 p-4 relative">
-                    <div className="mb-1 flex items-center justify-between">
-                      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery Address</p>
-                      {(() => {
-                        const addr = selectedOrder.deliveryAddress;
-                        // Prioritize coordinates for accuracy
-                        const coords = selectedOrder.deliveryCoordinates || addr?.coordinates || (addr?.lat && addr?.lng ? { lat: addr.lat, lng: addr.lng } : null);
-                        const lat = coords?.lat || coords?.latitude;
-                        const lng = coords?.lng || coords?.longitude;
+                <div className="rounded-xl border border-border bg-muted/30 p-4 relative">
+                  <div className="mb-1 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery Address</p>
+                    {(() => {
+                      const addr = selectedOrder.deliveryAddress;
+                      // Prioritize coordinates for accuracy
+                      const coords = selectedOrder.deliveryCoordinates || addr?.coordinates || (addr?.lat && addr?.lng ? { lat: addr.lat, lng: addr.lng } : null);
+                      const lat = coords?.lat || coords?.latitude;
+                      const lng = coords?.lng || coords?.longitude;
 
-                        // Fallback to address string
-                        const addressString = typeof addr === "object"
-                          ? [addr.addressLine1, addr.addressLine2, addr.city, addr.state, addr.postalCode].filter(Boolean).join(", ")
-                          : (selectedOrder.address || addr);
+                      // Fallback to address string
+                      const addressString = typeof addr === "object"
+                        ? [addr.addressLine1, addr.addressLine2, addr.city, addr.state, addr.postalCode].filter(Boolean).join(", ")
+                        : (selectedOrder.address || addr);
 
-                        const mapUrl = (lat && lng)
-                          ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressString)}`;
+                      const mapUrl = (lat && lng)
+                        ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressString)}`;
 
-                        return (
-                          <div className="flex gap-2">
-                            {/* QR Code Button */}
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-100 hover:text-black border border-gray-200">
-                                  <QrCode className="h-3 w-3" />
-                                  Show QR
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-4">
-                                <div className="flex flex-col items-center gap-2">
-                                  <p className="text-xs font-bold text-center text-muted-foreground mb-2">Scan for Navigation 📍</p>
-                                  <div className="bg-white p-2 rounded-lg shadow-sm border border-border">
-                                    <QRCode
-                                      value={mapUrl}
-                                      size={128}
-                                      style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                      viewBox={`0 0 256 256`}
-                                    />
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground text-center mt-1">Opens Google Maps</p>
+                      return (
+                        <div className="flex gap-2">
+                          {/* QR Code Button */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-bold text-gray-700 shadow-sm transition-colors hover:bg-gray-100 hover:text-black border border-gray-200">
+                                <QrCode className="h-3 w-3" />
+                                Show QR
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-4">
+                              <div className="flex flex-col items-center gap-2">
+                                <p className="text-xs font-bold text-center text-muted-foreground mb-2">Scan for Navigation 📍</p>
+                                <div className="bg-white p-2 rounded-lg shadow-sm border border-border">
+                                  <QRCode
+                                    value={mapUrl}
+                                    size={128}
+                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                    viewBox={`0 0 256 256`}
+                                  />
                                 </div>
-                              </PopoverContent>
-                            </Popover>
+                                <p className="text-[10px] text-muted-foreground text-center mt-1">Opens Google Maps</p>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
 
-                            {/* Maps Link */}
-                            <a
-                              href={mapUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-bold text-blue-600 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-700 border border-blue-100"
-                            >
-                              <MapPin className="h-3 w-3" />
-                              Open Map
-                            </a>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <p className="text-foreground">
-                      {typeof selectedOrder.deliveryAddress === "object" && selectedOrder.deliveryAddress
-                        ? [
-                          selectedOrder.deliveryAddress.label && `(${selectedOrder.deliveryAddress.label})`,
-                          selectedOrder.deliveryAddress.addressLine1 || selectedOrder.deliveryAddress.houseNo,
-                          selectedOrder.deliveryAddress.addressLine2 || selectedOrder.deliveryAddress.street,
-                          selectedOrder.deliveryAddress.landmark,
-                          selectedOrder.deliveryAddress.city,
-                          selectedOrder.deliveryAddress.state,
-                          selectedOrder.deliveryAddress.postalCode || selectedOrder.deliveryAddress.zip,
-                        ].filter(Boolean).join(", ")
-                        : (selectedOrder.address || selectedOrder.deliveryAddress)}
-                    </p>
+                          {/* Maps Link */}
+                          <a
+                            href={mapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 rounded-md bg-white px-2 py-1 text-[10px] font-bold text-blue-600 shadow-sm transition-colors hover:bg-blue-50 hover:text-blue-700 border border-blue-100"
+                          >
+                            <MapPin className="h-3 w-3" />
+                            Open Map
+                          </a>
+                        </div>
+                      );
+                    })()}
                   </div>
-                )}
+                  <p className="text-foreground">
+                    {typeof selectedOrder.deliveryAddress === "object" && selectedOrder.deliveryAddress
+                      ? [
+                        selectedOrder.deliveryAddress.label && `(${selectedOrder.deliveryAddress.label})`,
+                        selectedOrder.deliveryAddress.addressLine1 || selectedOrder.deliveryAddress.houseNo,
+                        selectedOrder.deliveryAddress.addressLine2 || selectedOrder.deliveryAddress.street,
+                        selectedOrder.deliveryAddress.landmark,
+                        selectedOrder.deliveryAddress.city,
+                        selectedOrder.deliveryAddress.state,
+                        selectedOrder.deliveryAddress.postalCode || selectedOrder.deliveryAddress.zip,
+                      ].filter(Boolean).join(", ")
+                      : (selectedOrder.address || selectedOrder.deliveryAddress)}
+                  </p>
+
+                  {/* Delivery Instructions */}
+                  {selectedOrder.deliveryInstruction && (
+                    <div className="mt-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/30 p-2.5">
+                      <p className="text-xs font-bold text-yellow-800 dark:text-yellow-500 uppercase flex items-center gap-1.5">
+                        📝 Special Instructions
+                      </p>
+                      <p className="text-sm mt-1 text-yellow-900 dark:text-yellow-200/90 font-medium">
+                        "{selectedOrder.deliveryInstruction}"
+                      </p>
+                    </div>
+                  )}
+                </div>
 
                 {/* Items Table */}
                 <div>
@@ -525,6 +545,36 @@ const AdminOrders = () => {
                   )}
                   {selectedOrder.deliveryCharge > 0 && (
                     <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span>₹{selectedOrder.deliveryCharge}</span></div>
+                  )}
+                  {(selectedOrder.taxAmount > 0 || selectedOrder.cgstTotal > 0 || selectedOrder.sgstTotal > 0 || selectedOrder.igstTotal > 0) && (
+                    <div className="flex flex-col gap-1 text-muted-foreground border-t border-border/50 pt-2 mt-2">
+                      <div className="flex justify-between">
+                        <span>Tax</span>
+                        <span>₹{selectedOrder.taxAmount || ((selectedOrder.cgstTotal || 0) + (selectedOrder.sgstTotal || 0) + (selectedOrder.igstTotal || 0))}</span>
+                      </div>
+                      {(selectedOrder.cgstTotal > 0 || selectedOrder.sgstTotal > 0) && (
+                        <div className="ml-2 flex flex-col gap-0.5 text-xs text-muted-foreground/80 border-l-2 border-border pl-2">
+                          {selectedOrder.cgstTotal > 0 && (
+                            <div className="flex justify-between">
+                              <span>CGST</span>
+                              <span>₹{selectedOrder.cgstTotal}</span>
+                            </div>
+                          )}
+                          {selectedOrder.sgstTotal > 0 && (
+                            <div className="flex justify-between">
+                              <span>SGST</span>
+                              <span>₹{selectedOrder.sgstTotal}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {selectedOrder.igstTotal > 0 && (
+                        <div className="ml-2 text-xs text-muted-foreground/80 border-l-2 border-border pl-2 flex justify-between">
+                          <span>IGST</span>
+                          <span>₹{selectedOrder.igstTotal}</span>
+                        </div>
+                      )}
+                    </div>
                   )}
                   <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
                     <span>Total</span><span>₹{selectedOrder.finalAmount || selectedOrder.totalAmount || 0}</span>

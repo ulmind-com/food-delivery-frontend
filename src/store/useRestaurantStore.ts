@@ -5,6 +5,10 @@ interface RestaurantInfo {
   name: string;
   address?: string;
   deliveryRadius?: number;
+  gstIn?: string;
+  fssaiLicense?: string;
+  location?: { lat: number; lng: number };
+  logo?: string;
   isOpen: boolean;
 }
 

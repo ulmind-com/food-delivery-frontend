@@ -4,18 +4,18 @@ import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRestaurantStore } from "@/store/useRestaurantStore";
 import { useLocationStore } from "@/store/useLocationStore";
-import { orderApi, restaurantApi } from "@/api/axios";
+import { orderApi, restaurantApi, menuApi, cartApi } from "@/api/axios";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import AddressManager from "@/components/AddressManager";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { CreditCard, Banknote, ArrowLeft, Loader2, MapPin, Home, Briefcase, Minus, Plus, ChevronRight, Clock } from "lucide-react";
+import { CreditCard, Banknote, ArrowLeft, Loader2, MapPin, Home, Briefcase, Minus, Plus, FileText, UtensilsCrossed } from "lucide-react";
 
 type PaymentMethod = "ONLINE" | "COD";
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { items, totalPrice, discountAmount, finalPrice, deliveryFee, tax, appliedCoupon, clearCart, incrementItem, decrementItem, isLoading: isCartLoading } = useCartStore();
+  const { items, totalPrice, discountAmount, finalPrice, deliveryFee, tax, taxBreakdown, appliedCoupon, clearCart, incrementItem, decrementItem, isLoading: isCartLoading } = useCartStore();
   const { user } = useAuthStore();
   const { restaurant, setRestaurant, setLoading } = useRestaurantStore();
   const { selectedAddress: storedAddress } = useLocationStore();
@@ -24,11 +24,50 @@ const CheckoutPage = () => {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [selectedAddressObj, setSelectedAddressObj] = useState<any>(null);
   const [selectedAddressText, setSelectedAddressText] = useState("");
+  const [deliveryInstruction, setDeliveryInstruction] = useState("");
+  const [noCutlery, setNoCutlery] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [isSelectingAddress, setIsSelectingAddress] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const { payNow, loading: paymentLoading } = useRazorpay();
+  const [recommendedProducts, setRecommendedProducts] = useState<any[]>([]);
+  const { addItem, fetchCart } = useCartStore();
 
   const isRestaurantClosed = restaurant && !restaurant.isOpen;
+
+  // Refresh cart on mount to ensure we have latest item details (categories)
+  useEffect(() => {
+    fetchCart();
+  }, [fetchCart]);
+
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
+  // Fetch Recommended Products
+  useEffect(() => {
+    if (items.length > 0) {
+      const fetchRecommendations = async () => {
+        try {
+          const res = await cartApi.getRecommendations();
+          setRecommendedProducts(res.data);
+          // Reset scroll
+          setTimeout(() => {
+            const scrollContainer = document.getElementById('rec-scroll');
+            if (scrollContainer) {
+              scrollContainer.scrollLeft = 0;
+            }
+          }, 100);
+        } catch (error) {
+          console.error("Failed to fetch recommendations", error);
+        }
+      };
+
+      fetchRecommendations();
+    }
+  }, [items]);
+
 
   // Sync restaurant status
   useEffect(() => {
@@ -75,6 +114,7 @@ const CheckoutPage = () => {
           finalAmount: finalPrice,
           deliveryAddress: selectedAddressId,
           address: selectedAddressText || user?.address || "",
+          deliveryInstruction: `${deliveryInstruction}${noCutlery ? " | Don't send cutlery 🍴❌" : ""}`, // Combine instructions
           deliveryCoordinates: selectedAddressObj?.coordinates || undefined,
           paymentMethod: "COD",
         });
@@ -104,6 +144,7 @@ const CheckoutPage = () => {
               finalAmount: finalPrice,
               deliveryAddress: selectedAddressId,
               address: selectedAddressText || user?.address || "",
+              deliveryInstruction: `${deliveryInstruction}${noCutlery ? " | Don't send cutlery 🍴❌" : ""}`, // Combine instructions
               deliveryCoordinates: selectedAddressObj?.coordinates || undefined,
               paymentMethod: "ONLINE",
               razorpayOrderId: paymentDetails.razorpay_order_id,
@@ -169,7 +210,7 @@ const CheckoutPage = () => {
   const AddressIcon = selectedAddressObj?.type === "WORK" ? Briefcase : selectedAddressObj?.type === "HOME" ? Home : MapPin;
 
   return (
-    <div className="min-h-screen bg-gray-50/50 pb-32 dark:bg-background">
+    <div className="min-h-screen bg-gray-50/50 pb-48 dark:bg-background">
       {/* Header */}
       <header className="sticky top-0 z-30 flex items-center bg-background px-4 py-4 shadow-sm">
         <button onClick={() => navigate(-1)} className="mr-4 rounded-full p-1 hover:bg-accent">
@@ -224,13 +265,10 @@ const CheckoutPage = () => {
 
         {!isSelectingAddress && (
           <>
-            {/* Delivery Estimate */}
-            <div className="flex items-center gap-3 rounded-xl bg-orange-50 p-4 dark:bg-orange-900/10">
-              <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-              <p className="text-sm font-semibold text-orange-700 dark:text-orange-300">
-                Estimated Delivery in <span className="font-bold">{deliveryTime} mins</span>
-              </p>
-            </div>
+
+
+            {/* Delivery Instructions */}
+
 
             {/* Items List */}
             <section className="rounded-2xl bg-card p-4 shadow-sm border border-border/50">
@@ -276,7 +314,106 @@ const CheckoutPage = () => {
               >
                 <Plus className="h-4 w-4" /> Add more items
               </button>
+
+              <div className="mt-4 pt-4 border-t border-dashed border-border">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setIsNoteOpen(!isNoteOpen)}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all h-9 ${isNoteOpen || deliveryInstruction
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:bg-accent text-muted-foreground"
+                      }`}
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    {deliveryInstruction ? "Edit Note" : "Add a note"}
+                  </button>
+                  <button
+                    onClick={() => setNoCutlery(!noCutlery)}
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-2 py-1.5 text-xs font-semibold transition-all h-9 ${noCutlery
+                      ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
+                      : "border-border hover:bg-accent text-muted-foreground"
+                      }`}
+                  >
+                    <UtensilsCrossed className="h-3.5 w-3.5" />
+                    Don't send cutlery
+                  </button>
+                </div>
+
+                <AnimatePresence>
+                  {(isNoteOpen || deliveryInstruction) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <textarea
+                        value={deliveryInstruction}
+                        onChange={(e) => setDeliveryInstruction(e.target.value)}
+                        placeholder="e.g. Leave at door, don't ring bell..."
+                        className="mt-3 w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary min-h-[80px] resize-none"
+                        autoFocus={isNoteOpen && !deliveryInstruction}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </section>
+
+            {/* Recommended Products */}
+            {recommendedProducts.length > 0 && (
+              <section className="mb-2 space-y-2">
+                <h3 className="font-bold text-sm text-foreground px-1">May you like this</h3>
+
+                <div
+                  id="rec-scroll"
+                  className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {recommendedProducts.map((product, index) => (
+                    <div
+                      key={product._id}
+                      className="snap-start flex-shrink-0 w-36 flex flex-col bg-card rounded-lg shadow-sm border border-border/40 overflow-hidden hover:shadow-md transition-shadow group"
+                    >
+                      <div className="relative h-24 w-full overflow-hidden bg-muted">
+                        <img
+                          src={product.imageURL}
+                          alt={product.name}
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-1.5 right-1.5 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded text-[9px] font-bold text-white flex items-center gap-1">
+                          <span className={product.type === "Veg" ? "text-green-400" : "text-red-400"}>●</span>
+                          {product.type === "Veg" ? "Veg" : "Non-Veg"}
+                        </div>
+                      </div>
+
+                      <div className="p-2 flex flex-col flex-1 gap-0">
+                        <div className="flex-1 mb-1">
+                          <h4 className="font-medium text-xs line-clamp-2 leading-tight">{product.name}</h4>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-border/30">
+                          <span className="text-xs font-bold text-foreground">₹{product.variants?.[0]?.price || product.price || 0}</span>
+                          <button
+                            onClick={() => addItem({
+                              _id: product._id,
+                              name: product.name,
+                              price: product.variants?.[0]?.price || product.price || 0,
+                              image: product.imageURL,
+                              type: product.type,
+                              category: typeof product.category === 'object' ? product.category?._id : product.category
+                            })}
+                            className="bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border border-green-200 dark:border-green-800 transition-colors shadow-sm active:scale-95"
+                          >
+                            ADD
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Bill Summary */}
             <section className="rounded-2xl bg-card p-4 shadow-sm border border-border/50">
@@ -290,9 +427,29 @@ const CheckoutPage = () => {
                   <span>Delivery fee</span>
                   <span>₹{deliveryFee.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>GST</span>
-                  <span>₹{tax.toFixed(2)}</span>
+                <div className="flex flex-col gap-1 text-muted-foreground">
+                  <div className="flex justify-between">
+                    <span>GST (Total)</span>
+                    <span>₹{tax.toFixed(2)}</span>
+                  </div>
+                  {taxBreakdown && (taxBreakdown.cgstTotal > 0 || taxBreakdown.sgstTotal > 0) && (
+                    <div className="ml-2 flex flex-col gap-0.5 text-xs text-muted-foreground/80 border-l-2 border-border pl-2">
+                      <div className="flex justify-between">
+                        <span>CGST</span>
+                        <span>₹{taxBreakdown.cgstTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>SGST</span>
+                        <span>₹{taxBreakdown.sgstTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+                  {taxBreakdown && taxBreakdown.igstTotal > 0 && (
+                    <div className="ml-2 text-xs text-muted-foreground/80 border-l-2 border-border pl-2 flex justify-between">
+                      <span>IGST</span>
+                      <span>₹{taxBreakdown.igstTotal.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-green-600 dark:text-green-400">
@@ -317,29 +474,29 @@ const CheckoutPage = () => {
             {/* Payment & Order Button (Fixed Bottom) */}
             <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
               <div className="mx-auto max-w-lg space-y-3">
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button
                     onClick={() => setPaymentMethod("ONLINE")}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border p-3 transition-all ${paymentMethod === "ONLINE"
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 transition-all ${paymentMethod === "ONLINE"
                       ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
                       : "border-border hover:bg-accent"
                       }`}
                   >
-                    <img src="/razorpay.svg" alt="Razorpay" className="h-4 w-auto object-contain" />
-                    <span className="text-sm font-bold">Pay Online</span>
-                    {paymentMethod === "ONLINE" && <div className="ml-auto h-2 w-2 rounded-full bg-primary" />}
+                    <img src="/razorpay.svg" alt="Razorpay" className="h-3.5 w-auto object-contain" />
+                    <span className="text-xs font-bold">Pay Online</span>
+                    {paymentMethod === "ONLINE" && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
                   </button>
 
                   <button
                     onClick={() => setPaymentMethod("COD")}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border p-3 transition-all ${paymentMethod === "COD"
+                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 transition-all ${paymentMethod === "COD"
                       ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
                       : "border-border hover:bg-accent"
                       }`}
                   >
-                    <Banknote className={`h-5 w-5 ${paymentMethod === "COD" ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className="text-sm font-bold">Cash</span>
-                    {paymentMethod === "COD" && <div className="ml-auto h-2 w-2 rounded-full bg-primary" />}
+                    <Banknote className={`h-4 w-4 ${paymentMethod === "COD" ? "text-primary" : "text-muted-foreground"}`} />
+                    <span className="text-xs font-bold">Cash</span>
+                    {paymentMethod === "COD" && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
                   </button>
                 </div>
 
@@ -362,7 +519,7 @@ const CheckoutPage = () => {
                           <p className="font-extrabold text-xl leading-none">₹{finalPrice.toFixed(0)}</p>
                         </div>
                         <div className="flex items-center gap-2 font-bold bg-white/20 px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                          {paymentMethod === "COD" ? "Place Order" : "Pay Now"} <ChevronRight className="h-4 w-4" />
+                          {paymentMethod === "COD" ? "Place Order" : "Pay Now"} <span className="text-base leading-none">›</span>
                         </div>
                       </>
                     )}
@@ -373,7 +530,7 @@ const CheckoutPage = () => {
           </>
         )}
       </div>
-    </div>
+    </div >
   );
 };
 

@@ -31,6 +31,10 @@ const AddProductModal = ({ open, onClose }: AddProductModalProps) => {
     type: "Veg" as "Veg" | "Non-Veg",
     price: "",
     isAvailable: true,
+    hsnCode: "",
+    cgst: "",
+    sgst: "",
+    igst: "",
   });
 
   const { data: categories, isLoading: catLoading } = useQuery({
@@ -83,6 +87,10 @@ const AddProductModal = ({ open, onClose }: AddProductModalProps) => {
         variants: [{ name: "Standard", price: Number(form.price) }],
         isAvailable: form.isAvailable,
         imageURL,
+        hsnCode: (form as any).hsnCode || "",
+        cgst: Number((form as any).cgst || 0),
+        sgst: Number((form as any).sgst || 0),
+        igst: Number((form as any).igst || 0),
       };
       await adminApi.addMenuItem(payload as any);
 
@@ -124,13 +132,12 @@ const AddProductModal = ({ open, onClose }: AddProductModalProps) => {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${
-                  dragOver
-                    ? "border-primary bg-primary/5"
-                    : imagePreview
+                className={`mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${dragOver
+                  ? "border-primary bg-primary/5"
+                  : imagePreview
                     ? "border-border bg-accent/30"
                     : "border-border hover:border-primary/50 hover:bg-accent/20"
-                }`}
+                  }`}
               >
                 {imagePreview ? (
                   <div className="relative w-full">
@@ -243,9 +250,61 @@ const AddProductModal = ({ open, onClose }: AddProductModalProps) => {
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
                 placeholder="350"
                 className="mt-1.5"
-                min={1}
+                min={0}
+                step="0.01"
                 required
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">HSN Code</Label>
+                <Input
+                  value={(form as any).hsnCode}
+                  onChange={(e) => setForm({ ...form, hsnCode: e.target.value } as any)}
+                  placeholder="996331"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">IGST (%)</Label>
+                <Input
+                  type="number"
+                  value={(form as any).igst}
+                  onChange={(e) => setForm({ ...form, igst: e.target.value } as any)}
+                  placeholder="0"
+                  className="mt-1.5"
+                  min={0}
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">CGST (%)</Label>
+                <Input
+                  type="number"
+                  value={(form as any).cgst}
+                  onChange={(e) => setForm({ ...form, cgst: e.target.value } as any)}
+                  placeholder="2.5"
+                  className="mt-1.5"
+                  min={0}
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SGST (%)</Label>
+                <Input
+                  type="number"
+                  value={(form as any).sgst}
+                  onChange={(e) => setForm({ ...form, sgst: e.target.value } as any)}
+                  placeholder="2.5"
+                  className="mt-1.5"
+                  min={0}
+                  step="0.01"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between rounded-xl border border-border p-3">

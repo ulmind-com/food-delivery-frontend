@@ -26,6 +26,17 @@ import { useCartStore } from "./store/useCartStore";
 import { useAuthStore } from "./store/useAuthStore";
 import { useLocationStore } from "./store/useLocationStore";
 
+// Dynamically set favicon from a URL
+const setFavicon = (url: string) => {
+  let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']");
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.href = url;
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,6 +48,7 @@ const queryClient = new QueryClient({
 });
 
 const AppContent = () => {
+  const restaurant = useRestaurantStore((s) => s.restaurant);
   const setRestaurant = useRestaurantStore((s) => s.setRestaurant);
   const setLoading = useRestaurantStore((s) => s.setLoading);
   const fetchCart = useCartStore((s) => s.fetchCart);
@@ -49,6 +61,16 @@ const AppContent = () => {
       .then((res) => setRestaurant(res.data))
       .catch(() => setLoading(false));
   }, []);
+
+  // Dynamically set page title + favicon from restaurant API
+  useEffect(() => {
+    if (restaurant?.name) {
+      document.title = restaurant.name;
+    }
+    if (restaurant?.logo) {
+      setFavicon(restaurant.logo);
+    }
+  }, [restaurant?.name, restaurant?.logo]);
 
   const queryClient = useQueryClient();
 

@@ -103,6 +103,7 @@ export const cartApi = {
   clear: () => api.delete("/cart"),
   applyCoupon: (data: { code: string }) => api.post("/cart/coupon", data),
   removeCoupon: () => api.delete("/cart/coupon"),
+  getRecommendations: () => api.get("/cart/recommendations"),
 };
 
 // ─── Orders ─────────────────────────────────
@@ -113,6 +114,7 @@ export const orderApi = {
     totalAmount: number;
     deliveryAddress?: string;
     address?: string;
+    deliveryInstruction?: string;
     deliveryCoordinates?: { lat: number; lng: number };
     paymentMethod: "COD" | "ONLINE";
     discountApplied?: number;
@@ -123,7 +125,7 @@ export const orderApi = {
   }) => api.post("/orders", data),
   getMyOrders: () => api.get("/orders/my-orders"),
   getOrderById: (id: string) => api.get(`/orders/${id}`),
-  cancelOrder: (id: string) => api.post(`/orders/${id}/cancel`),
+  cancelOrder: (id: string, reason?: string) => api.post(`/orders/${id}/cancel`, { reason }),
 };
 
 // ─── Coupons ────────────────────────────────

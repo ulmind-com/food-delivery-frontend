@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { orderApi, restaurantApi, userApi } from "@/api/axios";
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { playOrderPlacedSound } from "@/lib/notification-sound";
 
 // Fix Leaflet default marker icons in bundlers
 // @ts-ignore
@@ -336,18 +338,25 @@ const RouteMap = ({ userLat, userLng, restaurantLat, restaurantLng, orderStatus 
 };
 
 /* ─── Status Stepper ────────────────────────────────────────────────────── */
-const StatusStepper = ({ status }: { status: string }) => {
+const StatusStepper = ({ status, reason }: { status: string; reason?: string }) => {
     const isCancelled = status === "CANCELLED";
     const currentIdx = STATUS_STEPS.indexOf(status);
 
     if (isCancelled) {
         return (
-            <div className="flex items-center gap-3 rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white text-lg">❌</div>
-                <div>
-                    <p className="font-bold text-red-600">Order Cancelled</p>
-                    <p className="text-xs text-red-500/80">This order has been cancelled</p>
+            <div className="flex flex-col gap-3 rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white text-lg">❌</div>
+                    <div>
+                        <p className="font-bold text-red-600">Order Cancelled</p>
+                        <p className="text-xs text-red-500/80">This order has been cancelled</p>
+                    </div>
                 </div>
+                {reason && (
+                    <div className="rounded-xl bg-red-100/50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+                        <span className="font-semibold">Reason:</span> {reason}
+                    </div>
+                )}
             </div>
         );
     }
@@ -408,11 +417,86 @@ const StatusStepper = ({ status }: { status: string }) => {
     );
 };
 
-/* ─── Cancel Button with countdown ─────────────────────────────────────── */
-const CancelButton = ({
+/* ─── Cancel Modal ──────────────────────────────────────────────────────── */
+const CancelModal = ({
+    isOpen, onClose, onConfirm, cancelling
+}: { isOpen: boolean; onClose: () => void; onConfirm: (reason: string) => void; cancelling: boolean }) => {
+    const [reason, setReason] = useState("");
+
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!isOpen || !mounted) return null;
+
+    return createPortal(
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                    />
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="relative z-[2001] w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl border border-border"
+                    >
+                        <h3 className="text-lg font-bold text-foreground">Cancel Order?</h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                            Please tell us why you want to cancel this order. This helps us improve our service.
+                        </p>
+                        <textarea
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder="Reason for cancellation..."
+                            className="mt-4 w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary min-h-[100px] resize-none"
+                            autoFocus
+                        />
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                onClick={onClose}
+                                disabled={cancelling}
+                                className="rounded-xl px-4 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                            >
+                                Keep Order
+                            </button>
+                            <button
+                                onClick={() => {
+                                    if (!reason.trim()) {
+                                        toast.error("Please provide a reason");
+                                        return;
+                                    }
+                                    onConfirm(reason);
+                                }}
+                                disabled={cancelling || !reason.trim()}
+                                className="flex items-center gap-2 rounded-xl bg-destructive px-4 py-2 text-sm font-bold text-destructive-foreground hover:bg-destructive/90 transition-colors disabled:opacity-50"
+                            >
+                                {cancelling ? <RefreshCw className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                                Cancel Order
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>,
+        document.body
+    );
+};
+
+/* ─── Cancel Button V2 (Trigger + Modal) ────────────────────────────────── */
+const CancelButtonV2 = ({
     orderId, createdAt, onCancel, cancelling,
-}: { orderId: string; createdAt: string; onCancel: (id: string) => void; cancelling: boolean }) => {
+}: { orderId: string; createdAt: string; onCancel: (reason: string) => void; cancelling: boolean }) => {
     const [remaining, setRemaining] = useState("");
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const update = useCallback(() => {
         const left = CANCEL_WINDOW_MS - (Date.now() - new Date(createdAt).getTime());
@@ -431,18 +515,29 @@ const CancelButton = ({
     if (!remaining) return null;
 
     return (
-        <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => onCancel(orderId)}
-            disabled={cancelling}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-destructive/30 bg-destructive/5 py-4 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
-        >
-            <XCircle className="h-4 w-4" />
-            Cancel Order
-            <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-mono">
-                <Clock className="h-3 w-3" /> {remaining}
-            </span>
-        </motion.button>
+        <>
+            <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setIsModalOpen(true)}
+                disabled={cancelling}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-destructive/30 bg-destructive/5 py-4 text-sm font-bold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+            >
+                <XCircle className="h-4 w-4" />
+                Cancel Order
+                <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-mono">
+                    <Clock className="h-3 w-3" /> {remaining}
+                </span>
+            </motion.button>
+            <CancelModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onConfirm={(reason) => {
+                    onCancel(reason);
+                    setIsModalOpen(false);
+                }}
+                cancelling={cancelling}
+            />
+        </>
     );
 };
 
@@ -468,6 +563,7 @@ const OrderTracking = () => {
         });
         return () => { socket.disconnect(); };
     }, [id]);
+
     // ──────────────────────────────────────────────────────────────────────
 
     const { data: order, isLoading, refetch } = useQuery({
@@ -475,6 +571,17 @@ const OrderTracking = () => {
         queryFn: () => orderApi.getOrderById(id!).then((r) => r.data?.order || r.data),
         enabled: !!id,
     });
+
+    // Play success sound on mount if order is just placed
+    useEffect(() => {
+        if (order && (order.status === "PLACED" || order.orderStatus === "PLACED")) {
+            // Check if order is recent (within 10 seconds) to avoid playing on refresh/revisit
+            const isRecent = (Date.now() - new Date(order.createdAt).getTime()) < 10000;
+            if (isRecent) {
+                playOrderPlacedSound();
+            }
+        }
+    }, [order]);
 
     const { data: restaurant } = useQuery({
         queryKey: ["restaurant"],
@@ -490,7 +597,7 @@ const OrderTracking = () => {
     });
 
     const cancelMutation = useMutation({
-        mutationFn: (oid: string) => orderApi.cancelOrder(oid),
+        mutationFn: ({ oid, reason }: { oid: string; reason: string }) => orderApi.cancelOrder(oid, reason),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["my-orders"] });
             queryClient.invalidateQueries({ queryKey: ["order-detail", id] });
@@ -672,7 +779,7 @@ const OrderTracking = () => {
                     <Package className="h-4 w-4 text-primary" />
                     <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Order Progress</h2>
                 </div>
-                <StatusStepper status={status} />
+                <StatusStepper status={status} reason={order.cancellationReason} />
             </motion.div>
 
             {/* ── Order Items ───────────────────────────────────────────── */}
@@ -723,6 +830,36 @@ const OrderTracking = () => {
                         <div className="flex justify-between text-muted-foreground">
                             <span>Delivery Fee</span>
                             <span>₹{order.deliveryFee}</span>
+                        </div>
+                    )}
+                    {(order.taxAmount > 0 || order.cgstTotal > 0 || order.sgstTotal > 0 || order.igstTotal > 0) && (
+                        <div className="flex flex-col gap-1 text-muted-foreground">
+                            <div className="flex justify-between">
+                                <span>Tax</span>
+                                <span>₹{order.taxAmount || ((order.cgstTotal || 0) + (order.sgstTotal || 0) + (order.igstTotal || 0))}</span>
+                            </div>
+                            {(order.cgstTotal > 0 || order.sgstTotal > 0) && (
+                                <div className="ml-2 flex flex-col gap-0.5 text-xs text-muted-foreground/80 border-l-2 border-border pl-2">
+                                    {order.cgstTotal > 0 && (
+                                        <div className="flex justify-between">
+                                            <span>CGST</span>
+                                            <span>₹{order.cgstTotal}</span>
+                                        </div>
+                                    )}
+                                    {order.sgstTotal > 0 && (
+                                        <div className="flex justify-between">
+                                            <span>SGST</span>
+                                            <span>₹{order.sgstTotal}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {order.igstTotal > 0 && (
+                                <div className="ml-2 text-xs text-muted-foreground/80 border-l-2 border-border pl-2 flex justify-between">
+                                    <span>IGST</span>
+                                    <span>₹{order.igstTotal}</span>
+                                </div>
+                            )}
                         </div>
                     )}
                     {order.discountApplied > 0 && (
@@ -776,10 +913,10 @@ const OrderTracking = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
                 >
-                    <CancelButton
+                    <CancelButtonV2
                         orderId={order._id}
                         createdAt={order.createdAt}
-                        onCancel={(oid) => cancelMutation.mutate(oid)}
+                        onCancel={(reason) => cancelMutation.mutate({ oid: order._id, reason })}
                         cancelling={cancelMutation.isPending}
                     />
                 </motion.div>

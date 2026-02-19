@@ -58,6 +58,7 @@ const ProductCard = ({ item }: ProductCardProps) => {
       price: displayPrice,
       image: imageUrl,
       type: item.type,
+      category: typeof item.category === 'object' ? item.category._id : item.category,
     });
   };
 

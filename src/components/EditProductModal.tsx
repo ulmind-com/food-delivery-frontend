@@ -32,6 +32,10 @@ const EditProductModal = ({ open, onClose, item }: EditProductModalProps) => {
     type: "Veg" as "Veg" | "Non-Veg",
     price: "",
     isAvailable: true,
+    hsnCode: "",
+    cgst: "",
+    sgst: "",
+    igst: "",
   });
 
   const { data: categories } = useQuery({
@@ -50,6 +54,10 @@ const EditProductModal = ({ open, onClose, item }: EditProductModalProps) => {
         type: item.type || "Veg",
         price: String(item.price || item.variants?.[0]?.price || ""),
         isAvailable: item.isAvailable ?? true,
+        hsnCode: item.hsnCode || "",
+        cgst: String(item.cgst || ""),
+        sgst: String(item.sgst || ""),
+        igst: String(item.igst || ""),
       });
       setImagePreview(resolveImageURL(item.image || item.imageURL));
       setImageFile(null);
@@ -80,6 +88,10 @@ const EditProductModal = ({ open, onClose, item }: EditProductModalProps) => {
         variants: [{ name: "Standard", price: Number(form.price) }],
         isAvailable: form.isAvailable,
         imageURL,
+        hsnCode: (form as any).hsnCode,
+        cgst: Number((form as any).cgst || 0),
+        sgst: Number((form as any).sgst || 0),
+        igst: Number((form as any).igst || 0),
       });
       toast.success("Product updated! ✅");
       queryClient.invalidateQueries({ queryKey: ["admin-menu"] });
@@ -156,7 +168,58 @@ const EditProductModal = ({ open, onClose, item }: EditProductModalProps) => {
 
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Price (₹) *</Label>
-              <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1.5" min={1} required />
+              <Input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1.5" min={0} step="0.01" required />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">HSN Code</Label>
+                <Input
+                  value={(form as any).hsnCode}
+                  onChange={(e) => setForm({ ...form, hsnCode: e.target.value } as any)}
+                  placeholder="996331"
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">IGST (%)</Label>
+                <Input
+                  type="number"
+                  value={(form as any).igst}
+                  onChange={(e) => setForm({ ...form, igst: e.target.value } as any)}
+                  placeholder="0"
+                  className="mt-1.5"
+                  min={0}
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">CGST (%)</Label>
+                <Input
+                  type="number"
+                  value={(form as any).cgst}
+                  onChange={(e) => setForm({ ...form, cgst: e.target.value } as any)}
+                  placeholder="2.5"
+                  className="mt-1.5"
+                  min={0}
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">SGST (%)</Label>
+                <Input
+                  type="number"
+                  value={(form as any).sgst}
+                  onChange={(e) => setForm({ ...form, sgst: e.target.value } as any)}
+                  placeholder="2.5"
+                  className="mt-1.5"
+                  min={0}
+                  step="0.01"
+                />
+              </div>
             </div>
 
             <div className="flex items-center justify-between rounded-xl border border-border p-3">

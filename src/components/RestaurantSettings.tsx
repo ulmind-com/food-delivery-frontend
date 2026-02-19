@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { restaurantApi } from "@/api/axios";
+import { restaurantApi, uploadApi } from "@/api/axios";
 import { useRestaurantStore } from "@/store/useRestaurantStore";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -202,6 +202,7 @@ const MapPicker = ({ initialLat, initialLng, onLocationSaved }: MapPickerProps) 
 const RestaurantSettings = () => {
   const queryClient = useQueryClient();
   const setRestaurant = useRestaurantStore((s) => s.setRestaurant);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: restaurant, isLoading } = useQuery({
     queryKey: ["restaurant"],
@@ -211,7 +212,10 @@ const RestaurantSettings = () => {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  const [form, setForm] = useState({ name: "", address: "", deliveryRadius: "" });
+  const [form, setForm] = useState({ name: "", address: "", deliveryRadius: "", gstIn: "", fssaiLicense: "" });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     if (restaurant) {
@@ -219,9 +223,32 @@ const RestaurantSettings = () => {
         name: restaurant.name || "",
         address: restaurant.address || "",
         deliveryRadius: String(restaurant.deliveryRadius || ""),
+        gstIn: restaurant.gstIn || "",
+        fssaiLicense: restaurant.fssaiLicense || "",
       });
+      if (restaurant.logo) setLogoPreview(restaurant.logo);
     }
   }, [restaurant]);
+
+  const handleFileSelect = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFileSelect(file);
+  };
 
   const handleToggle = async (isOpen: boolean) => {
     setToggling(true);
@@ -241,10 +268,19 @@ const RestaurantSettings = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      let logoURL = restaurant?.logo;
+      if (logoFile) {
+        const uploadRes = await uploadApi.uploadImage(logoFile);
+        logoURL = uploadRes.data.url;
+      }
+
       const res = await restaurantApi.update({
         name: form.name,
         address: form.address,
         deliveryRadius: Number(form.deliveryRadius) || undefined,
+        gstIn: form.gstIn,
+        fssaiLicense: form.fssaiLicense,
+        logo: logoURL,
       });
       setRestaurant(res.data);
       queryClient.invalidateQueries({ queryKey: ["restaurant"] });
@@ -346,6 +382,51 @@ const RestaurantSettings = () => {
           </div>
 
           <div className="space-y-4">
+            {/* Logo Upload */}
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Restaurant Logo</Label>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-colors ${dragOver
+                  ? "border-primary bg-primary/5"
+                  : logoPreview
+                    ? "border-border bg-accent/30"
+                    : "border-border hover:border-primary/50 hover:bg-accent/20"
+                  }`}
+              >
+                {logoPreview ? (
+                  <div className="relative w-full">
+                    <img
+                      src={logoPreview}
+                      alt="Logo Preview"
+                      className="mx-auto h-24 w-24 rounded-full object-cover border border-border shadow-sm"
+                    />
+                    <p className="mt-2 text-center text-xs text-muted-foreground">Click or drag to replace</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent">
+                      <Store className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-foreground">Drop logo here or click</p>
+                  </>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileSelect(file);
+                  }}
+                />
+              </div>
+            </div>
+
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Restaurant Name
@@ -383,6 +464,32 @@ const RestaurantSettings = () => {
                 min={1}
               />
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  GSTIN
+                </Label>
+                <Input
+                  value={form.gstIn}
+                  onChange={(e) => setForm({ ...form, gstIn: e.target.value })}
+                  placeholder="29ABCDE1234F1Z5"
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  FSSAI License
+                </Label>
+                <Input
+                  value={form.fssaiLicense}
+                  onChange={(e) => setForm({ ...form, fssaiLicense: e.target.value })}
+                  placeholder="10012345678901"
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
           </div>
 
           <motion.button
@@ -392,7 +499,7 @@ const RestaurantSettings = () => {
             className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:brightness-110 disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? (logoFile ? "Uploading..." : "Saving…") : "Save Changes"}
           </motion.button>
         </motion.form>
 

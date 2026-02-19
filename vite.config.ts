@@ -15,30 +15,6 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     chunkSizeWarningLimit: 2000,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("react") || id.includes("react-dom") || id.includes("react-router")) {
-              return "vendor-react";
-            }
-            if (id.includes("@radix-ui") || id.includes("lucide-react")) {
-              return "vendor-ui";
-            }
-            if (id.includes("framer-motion")) {
-              return "vendor-motion";
-            }
-            if (id.includes("@tanstack")) {
-              return "vendor-query";
-            }
-            if (id.includes("leaflet") || id.includes("react-leaflet")) {
-              return "vendor-maps";
-            }
-            return "vendor-misc";
-          }
-        },
-      },
-    },
   },
   plugins: [
     react(),
@@ -84,14 +60,6 @@ export default defineConfig(({ mode }) => ({
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7,
               },
-            },
-          },
-          {
-            urlPattern: /^http:\/\/localhost:5000\/api\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-              networkTimeoutSeconds: 10,
             },
           },
         ],

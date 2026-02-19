@@ -15,8 +15,8 @@ const CartBar = () => {
 
     const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
 
-    // Hide on checkout, admin, orders, addresses pages
-    const hiddenRoutes = ["/checkout", "/admin", "/my-orders", "/orders", "/addresses"];
+    // Hide on checkout, admin, orders, addresses pages, and profile
+    const hiddenRoutes = ["/checkout", "/admin", "/my-orders", "/orders", "/addresses", "/profile"];
     const shouldHide =
         !isAuthenticated() ||
         items.length === 0 ||

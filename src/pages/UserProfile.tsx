@@ -85,7 +85,7 @@ const UserProfile = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="container mx-auto max-w-5xl px-4 py-4 md:py-8">
+    <div className="container mx-auto max-w-5xl px-4 py-4 md:py-8 min-h-[calc(100vh-4rem)] overflow-x-hidden">
       {/* Back to Home */}
       <button
         onClick={() => navigate("/")}
@@ -136,14 +136,14 @@ const UserProfile = () => {
             </div>
 
             {isLoading ? (
-              <div className="mt-4 space-y-2">
-                <Skeleton className="mx-auto h-5 w-32" />
-                <Skeleton className="mx-auto h-4 w-40" />
+              <div className="mt-4 space-y-2 w-full flex flex-col items-center">
+                <Skeleton className="h-5 w-3/4 max-w-[200px]" />
+                <Skeleton className="h-4 w-1/2 max-w-[150px]" />
               </div>
             ) : (
               <>
                 <h2 className="mt-4 text-lg font-bold text-foreground">{profile?.name || authUser?.name}</h2>
-                <p className="text-sm text-muted-foreground">{profile?.email || authUser?.email}</p>
+                <p className="text-sm text-muted-foreground break-all">{profile?.email || authUser?.email}</p>
                 <span className="mt-2 inline-block rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
                   <Shield className="mr-1 inline h-3 w-3" />
                   {roleBadge}
@@ -214,6 +214,7 @@ const UserProfile = () => {
                 label="Email"
                 value={profile?.email || authUser?.email || ""}
                 readOnly
+                className="break-all"
               />
               <ProfileField
                 icon={<span className="text-sm font-bold text-muted-foreground">N</span>}
@@ -255,6 +256,7 @@ const ProfileField = ({
   editing,
   readOnly,
   onChange,
+  className,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -262,8 +264,9 @@ const ProfileField = ({
   editing?: boolean;
   readOnly?: boolean;
   onChange?: (v: string) => void;
+  className?: string;
 }) => (
-  <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
+  <div className="flex items-start gap-3 rounded-xl bg-muted/50 p-3">
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-background">{icon}</div>
     <div className="flex-1 min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
@@ -274,11 +277,11 @@ const ProfileField = ({
           className="w-full border-b border-primary bg-transparent text-sm font-medium text-foreground outline-none"
         />
       ) : (
-        <p className="truncate text-sm font-medium text-foreground">{value || "—"}</p>
+        <p className={`text-sm font-medium text-foreground ${className || "truncate"}`}>{value || "—"}</p>
       )}
     </div>
     {readOnly && (
-      <span className="rounded bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">Read-only</span>
+      <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">Read-only</span>
     )}
   </div>
 );

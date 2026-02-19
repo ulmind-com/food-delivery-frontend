@@ -1,7 +1,7 @@
 import axios from "axios";
 import { toast } from "sonner";
 
-const API_BASE_URL = "http://localhost:5000/api";
+const API_BASE_URL = "https://food-delivery-backend-0aib.onrender.com";
 
 const api = axios.create({
   baseURL: API_BASE_URL,

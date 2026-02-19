@@ -255,9 +255,17 @@ const Index = () => {
             animate={{ opacity: 1 }}
             className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           >
-            {menuItems?.map((item: any) => (
-              <ProductCard key={item._id} item={item} />
-            ))}
+            {menuItems?.map((item: any) => {
+              // Fix: If category is just an ID (string), look it up from cached categories to show Name instead of ID
+              let effectiveItem = item;
+              if (typeof item.category === "string" && categories) {
+                const foundCat = categories.find((c: any) => c._id === item.category);
+                if (foundCat) {
+                  effectiveItem = { ...item, category: foundCat };
+                }
+              }
+              return <ProductCard key={item._id} item={effectiveItem} />;
+            })}
           </motion.div>
         )}
       </section>

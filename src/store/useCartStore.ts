@@ -266,6 +266,8 @@ export const useCartStore = create<CartState>()((set, get) => ({
     }
   },
 
+
+
   toggleCart: () => set((s) => ({ isOpen: !s.isOpen })),
   getItemCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
 }));

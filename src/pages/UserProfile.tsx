@@ -85,24 +85,24 @@ const UserProfile = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="container mx-auto max-w-5xl px-4 py-6">
+    <div className="container mx-auto max-w-5xl px-4 py-4 md:py-8">
       {/* Back to Home */}
       <button
         onClick={() => navigate("/")}
-        className="mb-6 flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary"
+        className="mb-4 flex items-center gap-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-primary md:mb-6"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Home
       </button>
 
-      <div className="grid gap-6 md:grid-cols-[280px_1fr]">
+      <div className="grid gap-4 md:grid-cols-[280px_1fr] md:gap-6">
         {/* Left — Identity Card */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="md:sticky md:top-24 h-fit space-y-5"
+          className="md:sticky md:top-24 h-fit space-y-4 md:space-y-5"
         >
-          <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm sm:p-6">
             {/* Avatar with pen icon */}
             <div className="relative mx-auto w-fit">
               {isLoading ? (
@@ -172,7 +172,7 @@ const UserProfile = () => {
 
         {/* Right — Personal Information */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-bold text-foreground">Personal Information</h3>
               {!editing ? (

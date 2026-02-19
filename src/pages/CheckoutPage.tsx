@@ -15,7 +15,7 @@ type PaymentMethod = "ONLINE" | "COD";
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { items, totalPrice, discountAmount, finalPrice, deliveryFee, tax, appliedCoupon, clearCart, incrementItem, decrementItem } = useCartStore();
+  const { items, totalPrice, discountAmount, finalPrice, deliveryFee, tax, appliedCoupon, clearCart, incrementItem, decrementItem, isLoading: isCartLoading } = useCartStore();
   const { user } = useAuthStore();
   const { restaurant, setRestaurant, setLoading } = useRestaurantStore();
   const { selectedAddress: storedAddress } = useLocationStore();
@@ -51,7 +51,7 @@ const CheckoutPage = () => {
     }
   }, [storedAddress, selectedAddressId]);
 
-  const isLoading = placingOrder || paymentLoading;
+  const isLoading = placingOrder || paymentLoading || isCartLoading;
   const deliveryTime = 30; // Mock delivery time
 
   const handlePlaceOrder = async () => {
@@ -125,6 +125,33 @@ const CheckoutPage = () => {
   };
 
   if (items.length === 0) {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-gray-50/50 pb-32 dark:bg-background p-4">
+          <header className="sticky top-0 z-30 flex items-center bg-background px-4 py-4 shadow-sm mb-6">
+            <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+            <div className="ml-4 h-6 w-32 rounded bg-muted animate-pulse" />
+          </header>
+          <div className="mx-auto max-w-lg space-y-6">
+            <div className="h-24 w-full rounded-2xl bg-muted animate-pulse" />
+            <div className="h-12 w-full rounded-xl bg-orange-50/50 dark:bg-orange-900/10 animate-pulse" />
+            <div className="space-y-4 rounded-2xl bg-card p-4 shadow-sm border border-border/50">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-16 w-16 rounded-lg bg-muted animate-pulse" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
+                    <div className="h-3 w-1/2 rounded bg-muted animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="h-40 w-full rounded-2xl bg-muted animate-pulse" />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex h-[80vh] flex-col items-center justify-center p-6 text-center">
         <div className="mb-4 rounded-full bg-green-50 p-6">
@@ -298,7 +325,7 @@ const CheckoutPage = () => {
                       : "border-border hover:bg-accent"
                       }`}
                   >
-                    <img src="/razorpay.svg" alt="Razorpay" className="h-6 w-auto object-contain" />
+                    <img src="/razorpay.svg" alt="Razorpay" className="h-4 w-auto object-contain" />
                     <span className="text-sm font-bold">Pay Online</span>
                     {paymentMethod === "ONLINE" && <div className="ml-auto h-2 w-2 rounded-full bg-primary" />}
                   </button>
@@ -324,18 +351,18 @@ const CheckoutPage = () => {
                   <button
                     onClick={handlePlaceOrder}
                     disabled={isLoading}
-                    className="w-full flex items-center justify-between rounded-xl bg-primary p-4 text-primary-foreground shadow-lg hover:brightness-110 disabled:opacity-70 transition-all active:scale-[0.98]"
+                    className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-primary to-orange-600 p-4 text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-xl hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100 transition-all active:scale-[0.98]"
                   >
                     {isLoading ? (
                       <div className="flex w-full justify-center"><Loader2 className="animate-spin" /></div>
                     ) : (
                       <>
                         <div className="text-left">
-                          <p className="text-xs text-primary-foreground/80 uppercase font-semibold">Total</p>
-                          <p className="font-bold text-lg leading-none">₹{finalPrice.toFixed(0)}</p>
+                          <p className="text-[10px] text-primary-foreground/90 uppercase font-bold tracking-wider">Total to Pay</p>
+                          <p className="font-extrabold text-xl leading-none">₹{finalPrice.toFixed(0)}</p>
                         </div>
-                        <div className="flex items-center gap-2 font-bold">
-                          {paymentMethod === "COD" ? "Place Order" : "Pay Now"} <ChevronRight className="h-5 w-5" />
+                        <div className="flex items-center gap-2 font-bold bg-white/20 px-3 py-1.5 rounded-lg backdrop-blur-sm">
+                          {paymentMethod === "COD" ? "Place Order" : "Pay Now"} <ChevronRight className="h-4 w-4" />
                         </div>
                       </>
                     )}

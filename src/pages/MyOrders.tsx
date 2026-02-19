@@ -142,7 +142,7 @@ const MyOrders = () => {
                             e.stopPropagation();
                             setReviewOrderId(order._id);
                           }}
-                          className={`ml-auto flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all hover:scale-105 active:scale-95 ${reviewsMap[order._id]
+                          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all hover:scale-105 active:scale-95 ${reviewsMap[order._id]
                             ? "bg-yellow-100 text-yellow-700"
                             : "bg-primary text-primary-foreground shadow-sm hover:shadow-md"
                             }`}
@@ -162,9 +162,14 @@ const MyOrders = () => {
                         </button>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-foreground">₹{order.finalAmount || order.totalAmount || 0}</span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex items-center gap-3">
+                      {status === "DELIVERED" && (
+                        <div className="w-8" /> // Spacer or just remove entirely if layout permits
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-foreground">₹{order.finalAmount || order.totalAmount || 0}</span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
                     </div>
                   </div>
                 </motion.div>

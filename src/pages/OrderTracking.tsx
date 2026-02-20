@@ -555,7 +555,7 @@ const OrderTracking = () => {
 
     useEffect(() => {
         if (!id) return;
-        const socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
+        const socket = io("https://food-delivery-backend-0aib.onrender.com", { transports: ["websocket", "polling"] });
         socket.emit("joinOrder", id);
         socket.on("orderStatusUpdated", (data: { orderId: string; status: string }) => {
             if (data.status) {

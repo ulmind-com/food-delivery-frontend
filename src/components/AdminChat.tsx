@@ -10,7 +10,7 @@ import {
     Trash2, XCircle, RefreshCw, Users, Inbox, AlertTriangle,
 } from "lucide-react";
 
-const SOCKET_URL = "http://localhost:5000";
+const SOCKET_URL = "https://food-delivery-backend-0aib.onrender.com";
 
 interface Message {
     _id: string;

@@ -71,6 +71,9 @@ export const restaurantApi = {
     api.put("/restaurant", data),
   setLocation: (data: { lat: number; lng: number; address?: string }) =>
     api.put("/restaurant/location", data),
+  getVideos: () => api.get("/restaurant/videos"),
+  addVideo: (data: { url: string }) => api.post("/restaurant/videos", data),
+  deleteVideo: (index: number) => api.delete(`/restaurant/videos/${index}`),
 };
 
 // ─── Menu & Categories ──────────────────────
@@ -179,6 +182,21 @@ export const uploadApi = {
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
+  uploadMultipleImages: async (files: File[]) => {
+    const uploadPromises = files.map((file) => uploadApi.uploadImage(file));
+    const responses = await Promise.all(uploadPromises);
+    return responses.map((res) => res.data.url as string);
+  },
+  uploadVideo: (file: File, onProgress?: (pct: number) => void) => {
+    const formData = new FormData();
+    formData.append("video", file);
+    return api.post("/upload/video", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (e) => {
+        if (e.total && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      },
+    });
+  },
 };
 
 // ─── Admin ──────────────────────────────────
@@ -199,13 +217,14 @@ export const adminApi = {
 export const chatApi = {
   // User endpoints
   getOrCreateChat: () => api.get("/chat"),
-  sendMessage: (text: string) => api.post("/chat/message", { text }),
+  createNewChat: () => api.post("/chat/create"),
+  sendMessage: (data: { text: string; images?: string[] }) => api.post("/chat/message", data),
   markRead: () => api.put("/chat/read"),
 
   // Admin endpoints
   getAllChats: () => api.get("/chat/admin/all"),
   getChatById: (chatId: string) => api.get(`/chat/admin/${chatId}`),
-  adminReply: (chatId: string, text: string) => api.post(`/chat/admin/${chatId}/message`, { text }),
+  adminReply: (chatId: string, data: { text: string; images?: string[] }) => api.post(`/chat/admin/${chatId}/message`, data),
   closeChat: (chatId: string) => api.put(`/chat/admin/${chatId}/close`),
   deleteChat: (chatId: string) => api.delete(`/chat/admin/${chatId}`),
 };

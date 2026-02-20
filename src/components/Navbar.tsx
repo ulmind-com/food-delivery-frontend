@@ -12,12 +12,14 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useLocationStore } from "@/store/useLocationStore";
 import { useCartStore } from "@/store/useCartStore";
 import { Link, useNavigate } from "react-router-dom";
+import { useRestaurantStore } from "@/store/useRestaurantStore";
 import { ThemeToggle } from "./ThemeToggle";
 
 const Navbar = () => {
   const { user, openAuthModal, isAuthenticated, isAdmin } = useAuthStore();
   const { selectedAddress } = useLocationStore();
   const { items, toggleCart } = useCartStore();
+  const restaurant = useRestaurantStore((s) => s.restaurant);
   const navigate = useNavigate();
 
   const isCustomer = isAuthenticated() && !isAdmin();
@@ -76,12 +78,12 @@ const Navbar = () => {
           </button>
         ) : (
           /* Logo — for admin & guests */
-          <Link to="/" className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md">
+          <Link to="/" className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary shadow-md">
               <UtensilsCrossed className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-extrabold tracking-tight text-foreground">
-              Foodie
+            <span className="truncate text-lg font-extrabold tracking-tight text-foreground">
+              {restaurant?.name || "Foodie"}
             </span>
           </Link>
         )}

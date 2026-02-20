@@ -122,9 +122,9 @@ const CouponManager = () => {
                   <div className="absolute -left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-background" />
                   <div className="absolute -right-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full bg-background" />
 
-                  <div className="flex min-h-[10rem]">
+                  <div className="flex min-h-[10rem] flex-col sm:flex-row">
                     {/* Left – Discount */}
-                    <div className={`flex w-[40%] flex-col items-center justify-center gap-1.5 p-4 transition-colors ${isActive ? "bg-primary/10" : "bg-muted/50"}`}>
+                    <div className={`flex w-full sm:w-[40%] flex-col items-center justify-center gap-1.5 p-4 transition-colors border-b sm:border-b-0 sm:border-r border-dashed border-border ${isActive ? "bg-primary/10" : "bg-muted/50"}`}>
                       <Icon className={`h-5 w-5 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                       <p className={`text-center text-xl font-black leading-tight ${isActive ? "text-primary" : "text-muted-foreground"}`}>
                         {getDiscountLabel(coupon)}
@@ -140,10 +140,7 @@ const CouponManager = () => {
                       </span>
                     </div>
 
-                    {/* Dashed divider */}
-                    <div className="flex items-center">
-                      <div className="h-[70%] border-l-2 border-dashed border-border" />
-                    </div>
+                    {/* Optional notch line visual logic removed as it's built into borders now */}
 
                     {/* Right – Details & Actions */}
                     <div className="flex flex-1 flex-col justify-between p-4">

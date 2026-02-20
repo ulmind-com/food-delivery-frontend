@@ -73,6 +73,26 @@ const emptyCart: Omit<CartState, "isOpen" | "isLoading" | "fetchCart" | "addItem
 const calcTotal = (items: CartItem[]) =>
   items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
+/** Helper for unified optimistic calculation of prices */
+const getOptimisticPrices = (nextItems: CartItem[], state: CartState) => {
+  const optimisticTotal = calcTotal(nextItems);
+
+  // Calculate effective tax rate from previous state, fallback to 4% (standard GST combo)
+  const effectiveTaxRate = state.totalPrice > 0 ? (state.tax / state.totalPrice) : 0.04;
+  const optimisticTax = optimisticTotal > 0 ? (optimisticTotal * effectiveTaxRate) : 0;
+
+  const optimisticDelivery = optimisticTotal > 0 ? state.deliveryFee : 0;
+  const optimisticDiscount = Math.min(state.discountAmount, optimisticTotal);
+
+  return {
+    totalPrice: optimisticTotal,
+    tax: optimisticTax,
+    deliveryFee: optimisticDelivery,
+    discountAmount: optimisticDiscount,
+    finalPrice: optimisticTotal + optimisticTax + optimisticDelivery - optimisticDiscount
+  };
+};
+
 export const useCartStore = create<CartState>()((set, get) => ({
   ...emptyCart,
   isOpen: false,
@@ -159,14 +179,14 @@ export const useCartStore = create<CartState>()((set, get) => ({
     if (existing) {
       nextItems = prev.map((i) =>
         i._id === product._id && i.variant === product.variant
-          ? { ...i, quantity: i.quantity + 1, price: product.price } // Update price in case it changed
+          ? { ...i, quantity: i.quantity + 1, price: Number(product.price) || 0 } // Update price in case it changed
           : i
       );
     } else {
-      nextItems = [...prev, { ...product, itemId: "", quantity: 1 }];
+      nextItems = [...prev, { ...product, price: Number(product.price) || 0, itemId: "", quantity: 1 }];
     }
-    const optimisticTotal = calcTotal(nextItems);
-    set({ items: nextItems, totalPrice: optimisticTotal, finalPrice: optimisticTotal });
+    const optimisticPrices = getOptimisticPrices(nextItems, get());
+    set({ items: nextItems, ...optimisticPrices });
 
     try {
       await cartApi.add({ productId: product._id, quantity: 1 });
@@ -184,8 +204,8 @@ export const useCartStore = create<CartState>()((set, get) => ({
 
     // Optimistic with instant price
     const nextItems = prev.map((i) => (i.itemId === itemId ? { ...i, quantity: i.quantity + 1 } : i));
-    const optimisticTotal = calcTotal(nextItems);
-    set({ items: nextItems, totalPrice: optimisticTotal, finalPrice: optimisticTotal });
+    const optimisticPrices = getOptimisticPrices(nextItems, get());
+    set({ items: nextItems, ...optimisticPrices });
 
     try {
       await cartApi.updateQty(itemId, { quantity: item.quantity + 1 });
@@ -207,8 +227,8 @@ export const useCartStore = create<CartState>()((set, get) => ({
 
     // Optimistic with instant price
     const nextItems = prev.map((i) => (i.itemId === itemId ? { ...i, quantity: i.quantity - 1 } : i));
-    const optimisticTotal = calcTotal(nextItems);
-    set({ items: nextItems, totalPrice: optimisticTotal, finalPrice: optimisticTotal });
+    const optimisticPrices = getOptimisticPrices(nextItems, get());
+    set({ items: nextItems, ...optimisticPrices });
 
     try {
       await cartApi.updateQty(itemId, { quantity: item.quantity - 1 });
@@ -221,7 +241,9 @@ export const useCartStore = create<CartState>()((set, get) => ({
 
   removeItem: async (itemId) => {
     const prev = get().items;
-    set({ items: prev.filter((i) => i.itemId !== itemId) });
+    const nextItems = prev.filter((i) => i.itemId !== itemId);
+    const optimisticPrices = getOptimisticPrices(nextItems, get());
+    set({ items: nextItems, ...optimisticPrices });
 
     try {
       await cartApi.removeItem(itemId);

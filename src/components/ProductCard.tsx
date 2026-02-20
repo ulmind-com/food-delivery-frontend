@@ -55,7 +55,7 @@ const ProductCard = ({ item }: ProductCardProps) => {
     addItem({
       _id: item._id,
       name: item.name,
-      price: displayPrice,
+      price: Number(displayPrice),
       image: imageUrl,
       type: item.type,
       category: typeof item.category === 'object' ? item.category._id : item.category,

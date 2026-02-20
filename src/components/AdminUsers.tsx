@@ -91,7 +91,7 @@ const AdminUsers = () => {
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[800px] text-left text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/50">
                 <th className="px-5 py-3.5 font-bold text-muted-foreground">User</th>
@@ -105,117 +105,117 @@ const AdminUsers = () => {
             <tbody>
               {isLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-border">
-                      <td className="px-5 py-4"><Skeleton className="h-10 w-48" /></td>
-                      <td className="px-5 py-4"><Skeleton className="h-8 w-28" /></td>
-                      <td className="px-5 py-4"><Skeleton className="h-6 w-12" /></td>
-                      <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
-                      <td className="px-5 py-4"><Skeleton className="h-8 w-16" /></td>
-                    </tr>
-                  ))
+                  <tr key={i} className="border-b border-border">
+                    <td className="px-5 py-4"><Skeleton className="h-10 w-48" /></td>
+                    <td className="px-5 py-4"><Skeleton className="h-8 w-28" /></td>
+                    <td className="px-5 py-4"><Skeleton className="h-6 w-12" /></td>
+                    <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-5 py-4"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-5 py-4"><Skeleton className="h-8 w-16" /></td>
+                  </tr>
+                ))
                 : filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-12 text-center">
-                        <Users className="mx-auto h-10 w-10 text-muted-foreground/30" />
-                        <p className="mt-2 text-sm font-semibold text-muted-foreground">No users found</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    <AnimatePresence>
-                      {filtered.map((user: any) => {
-                        const initials = (user.name || "U")
-                          .split(" ")
-                          .map((w: string) => w[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2);
+                  <tr>
+                    <td colSpan={6} className="px-5 py-12 text-center">
+                      <Users className="mx-auto h-10 w-10 text-muted-foreground/30" />
+                      <p className="mt-2 text-sm font-semibold text-muted-foreground">No users found</p>
+                    </td>
+                  </tr>
+                ) : (
+                  <AnimatePresence>
+                    {filtered.map((user: any) => {
+                      const initials = (user.name || "U")
+                        .split(" ")
+                        .map((w: string) => w[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2);
 
-                        return (
-                          <motion.tr
-                            key={user._id}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="border-b border-border transition-colors hover:bg-muted/30"
-                          >
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-3">
-                                {user.profileImage ? (
-                                  <img
-                                    src={resolveImageURL(user.profileImage)}
-                                    alt={user.name}
-                                    className="h-10 w-10 shrink-0 rounded-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary/40 text-sm font-bold text-primary-foreground">
-                                    {initials}
-                                  </div>
-                                )}
-                                <div>
-                                  <p className="font-semibold text-foreground">{user.name}</p>
-                                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-5 py-4">
-                              <Select
-                                value={user.role}
-                                onValueChange={(val) =>
-                                  updateMutation.mutate({ id: user._id, data: { role: val } })
-                                }
-                              >
-                                <SelectTrigger className="h-8 w-32 text-xs font-semibold">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Customer">Customer</SelectItem>
-                                  <SelectItem value="Admin">Admin</SelectItem>
-                                  <SelectItem value="Delivery">Delivery</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-2">
-                                <Switch
-                                  checked={user.isActive !== false}
-                                  onCheckedChange={(checked) =>
-                                    updateMutation.mutate({ id: user._id, data: { isActive: checked } })
-                                  }
+                      return (
+                        <motion.tr
+                          key={user._id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="border-b border-border transition-colors hover:bg-muted/30"
+                        >
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              {user.profileImage ? (
+                                <img
+                                  src={resolveImageURL(user.profileImage)}
+                                  alt={user.name}
+                                  className="h-10 w-10 shrink-0 rounded-full object-cover"
                                 />
-                                <span className={`text-xs font-bold ${user.isActive !== false ? "text-swiggy-success" : "text-destructive"}`}>
-                                  {user.isActive !== false ? "Active" : "Inactive"}
-                                </span>
+                              ) : (
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-primary/40 text-sm font-bold text-primary-foreground">
+                                  {initials}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-foreground">{user.name}</p>
+                                <p className="text-xs text-muted-foreground">{user.email}</p>
                               </div>
-                            </td>
-                            <td className="px-5 py-4 text-xs text-muted-foreground">
-                              {user.mobile || "—"}
-                            </td>
-                            <td className="px-5 py-4 text-xs text-muted-foreground">
-                              {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}
-                            </td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => setViewUser(user)}
-                                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                                  title="View details"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => setDeleteTarget({ id: user._id, name: user.name })}
-                                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </td>
-                          </motion.tr>
-                        );
-                      })}
-                    </AnimatePresence>
-                  )}
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <Select
+                              value={user.role}
+                              onValueChange={(val) =>
+                                updateMutation.mutate({ id: user._id, data: { role: val } })
+                              }
+                            >
+                              <SelectTrigger className="h-8 w-32 text-xs font-semibold">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Customer">Customer</SelectItem>
+                                <SelectItem value="Admin">Admin</SelectItem>
+                                <SelectItem value="Delivery">Delivery</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={user.isActive !== false}
+                                onCheckedChange={(checked) =>
+                                  updateMutation.mutate({ id: user._id, data: { isActive: checked } })
+                                }
+                              />
+                              <span className={`text-xs font-bold ${user.isActive !== false ? "text-swiggy-success" : "text-destructive"}`}>
+                                {user.isActive !== false ? "Active" : "Inactive"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-xs text-muted-foreground">
+                            {user.mobile || "—"}
+                          </td>
+                          <td className="px-5 py-4 text-xs text-muted-foreground">
+                            {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => setViewUser(user)}
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                                title="View details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget({ id: user._id, name: user.name })}
+                                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
+                )}
             </tbody>
           </table>
         </div>

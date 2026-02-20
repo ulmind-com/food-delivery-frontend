@@ -6,33 +6,37 @@ export function playNewOrderSound() {
     try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
 
-        // A short two-tone "ding-dong" chime
-        const notes = [
-            { freq: 880, start: 0, duration: 0.18 },   // A5
-            { freq: 1174.66, start: 0.2, duration: 0.22 }, // D6
-        ];
+        // A loud, repeating siren-like alarm for a noisy kitchen
+        // 32 beeps * 0.25s (0.15 + 0.1) = ~8 seconds long
+        const beeps = 32;
+        const beepDuration = 0.15;
+        const pauseDuration = 0.1;
 
-        notes.forEach(({ freq, start, duration }) => {
+        for (let i = 0; i < beeps; i++) {
+            const start = i * (beepDuration + pauseDuration);
+
             const oscillator = ctx.createOscillator();
             const gainNode = ctx.createGain();
 
             oscillator.connect(gainNode);
             gainNode.connect(ctx.destination);
 
-            oscillator.type = "sine";
-            oscillator.frequency.setValueAtTime(freq, ctx.currentTime + start);
+            oscillator.type = "square"; // best for cutting through noise
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime + start); // High pitch (A5)
+            oscillator.frequency.setValueAtTime(1100, ctx.currentTime + start + (beepDuration / 2)); // slight warble
 
-            // Much Louder Volume (Gain 3.5)
+            // Extremely Loud Volume (Gain 5.0)
             gainNode.gain.setValueAtTime(0, ctx.currentTime + start);
-            gainNode.gain.linearRampToValueAtTime(3.5, ctx.currentTime + start + 0.02); // Boosted to 3.5
-            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+            gainNode.gain.linearRampToValueAtTime(5.0, ctx.currentTime + start + 0.02);
+            gainNode.gain.setValueAtTime(5.0, ctx.currentTime + start + beepDuration - 0.02);
+            gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + start + beepDuration);
 
             oscillator.start(ctx.currentTime + start);
-            oscillator.stop(ctx.currentTime + start + duration + 0.05);
-        });
+            oscillator.stop(ctx.currentTime + start + beepDuration);
+        }
 
         // Close context after sound finishes to free resources
-        setTimeout(() => ctx.close(), 1000);
+        setTimeout(() => ctx.close(), (beeps * (beepDuration + pauseDuration)) * 1000 + 500);
     } catch (e) {
         console.warn("Could not play notification sound:", e);
     }
@@ -78,3 +82,61 @@ export function playOrderPlacedSound() {
         console.warn("Could not play success sound:", e);
     }
 }
+
+/**
+ * Plays a warm, loud bell-chime notification for incoming chat messages.
+ * Uses sine harmonics + DynamicsCompressor for max loudness and a pleasing tone.
+ */
+export function playChatSound() {
+    try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const sampleRate = ctx.sampleRate;
+
+        // Render TWO bell notes (E5 → A5) directly into a buffer at ±1.0 amplitude.
+        // AudioBuffer approach bypasses oscillator gain limitations — samples are
+        // literally at the maximum digital amplitude the browser audio pipeline allows.
+        const totalDuration = 1.5; // seconds
+        const bufLen = Math.ceil(sampleRate * totalDuration);
+        const buffer = ctx.createBuffer(1, bufLen, sampleRate);
+        const data = buffer.getChannelData(0);
+
+        const addNote = (freq: number, startSec: number, durationSec: number) => {
+            const startSample = Math.floor(startSec * sampleRate);
+            const endSample = Math.min(startSample + Math.floor(durationSec * sampleRate), bufLen);
+            for (let i = startSample; i < endSample; i++) {
+                const t = (i - startSample) / sampleRate;
+                // Full amplitude sine at target freq + harmonics for bell richness
+                const env = Math.exp(-4.5 * t / durationSec); // exponential decay envelope
+                const wave = Math.sin(2 * Math.PI * freq * t)             // fundamental
+                    + 0.5 * Math.sin(2 * Math.PI * freq * 2 * t)  // 2nd harmonic
+                    + 0.25 * Math.sin(2 * Math.PI * freq * 3 * t); // 3rd harmonic
+                data[i] += wave * env; // accumulate (may go > ±1, normalised below)
+            }
+        };
+
+        addNote(659.25, 0, 0.9); // E5
+        addNote(880.00, 0.40, 0.9); // A5
+
+        // Normalise to ±1.0 so the buffer plays at maximum possible amplitude
+        let peak = 0;
+        for (let i = 0; i < bufLen; i++) { if (Math.abs(data[i]) > peak) peak = Math.abs(data[i]); }
+        if (peak > 0) { for (let i = 0; i < bufLen; i++) { data[i] /= peak; } }
+
+        // Play it 3 times in a row
+        const playAt = (when: number) => {
+            const src = ctx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(ctx.destination);
+            src.start(when);
+        };
+
+        playAt(ctx.currentTime);
+        playAt(ctx.currentTime + totalDuration);
+        playAt(ctx.currentTime + totalDuration * 2);
+
+        setTimeout(() => ctx.close(), (totalDuration * 3 + 0.5) * 1000);
+    } catch (e) {
+        console.warn("Could not play chat sound:", e);
+    }
+}
+

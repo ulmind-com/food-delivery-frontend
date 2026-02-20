@@ -98,8 +98,8 @@ const DashboardAnalytics = () => {
                         <p className="text-xs text-muted-foreground">Deep dive into your business metrics</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative">
+                <div className="flex w-full flex-col sm:w-auto sm:flex-row items-center gap-2">
+                    <div className="relative w-full sm:w-auto">
                         <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                             type="datetime-local"
@@ -109,8 +109,8 @@ const DashboardAnalytics = () => {
                             className="h-10 rounded-lg border border-border bg-background pl-9 pr-3 text-sm focus:border-primary focus:outline-none"
                         />
                     </div>
-                    <span className="text-muted-foreground">-</span>
-                    <div className="relative">
+                    <span className="hidden text-muted-foreground sm:block">-</span>
+                    <div className="relative w-full sm:w-auto">
                         <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                             type="datetime-local"
@@ -194,31 +194,33 @@ const DashboardAnalytics = () => {
             {/* Charts Row 1 */}
             <div className="grid gap-6 lg:grid-cols-2">
                 {/* Top Selling Items */}
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm min-w-0">
                     <h3 className="mb-4 text-lg font-bold text-foreground">Top Selling Items</h3>
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={topItemsData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                                <XAxis type="number" />
-                                <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                    cursor={{ fill: 'transparent' }}
-                                />
-                                <Legend />
-                                <Bar dataKey="totalSold" name="Units Sold" fill="#0088FE" radius={[0, 4, 4, 0]} barSize={20} />
-                                <Bar dataKey="revenue" name="Revenue" fill="#00C49F" radius={[0, 4, 4, 0]} barSize={20} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                    <div className="w-full overflow-x-auto pb-4">
+                        <div className="h-[300px] min-w-[500px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={topItemsData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                    <XAxis type="number" />
+                                    <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        cursor={{ fill: 'transparent' }}
+                                    />
+                                    <Legend />
+                                    <Bar dataKey="totalSold" name="Units Sold" fill="#0088FE" radius={[0, 4, 4, 0]} barSize={20} />
+                                    <Bar dataKey="revenue" name="Revenue" fill="#00C49F" radius={[0, 4, 4, 0]} barSize={20} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
 
                 {/* Order Status Breakdown */}
-                <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+                <div className="rounded-xl border border-border bg-card p-6 shadow-sm min-w-0">
                     <h3 className="mb-4 text-lg font-bold text-foreground">Order Status Distribution</h3>
-                    <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-                        <div className="h-[250px] w-[250px] flex-shrink-0">
+                    <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
+                        <div className="h-[250px] w-full max-w-[250px] flex-shrink-0">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie

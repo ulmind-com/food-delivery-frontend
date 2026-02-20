@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { chatApi } from "@/api/axios";
+import { chatApi, uploadApi } from "@/api/axios";
 import { useRestaurantStore } from "@/store/useRestaurantStore";
 import { io, Socket } from "socket.io-client";
+import { playChatSound } from "@/lib/notification-sound";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import {
     MessageSquare, Send, CheckCheck, Circle,
-    Trash2, XCircle, RefreshCw, Users, Inbox, AlertTriangle,
+    Trash2, XCircle, RefreshCw, Users, Inbox, AlertTriangle, ImagePlus, X
 } from "lucide-react";
 
 const SOCKET_URL = "https://food-delivery-backend-0aib.onrender.com";
@@ -16,12 +17,21 @@ interface Message {
     _id: string;
     sender: "user" | "admin";
     text: string;
+    images?: string[];
     isRead: boolean;
     createdAt: string;
 }
+interface PopulatedUser {
+    _id: string;
+    name: string;
+    email: string;
+    mobile?: string;
+    profileImage?: string;
+}
 interface ChatSession {
     _id: string;
-    userName: string;
+    user: PopulatedUser;
+    userName: string; // for fallback
     lastMessage: string;
     lastMessageAt: string;
     isOpen: boolean;
@@ -29,26 +39,11 @@ interface ChatSession {
 }
 interface ChatThread {
     _id: string;
-    userName: string;
+    user: PopulatedUser;
+    userName: string; // for fallback
     isOpen: boolean;
     messages: Message[];
 }
-
-/* ─── Beep (created lazily, once per event) ──── */
-const playBeep = () => {
-    try {
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-        osc.frequency.value = 880;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.3);
-    } catch { /* ignore autoplay restriction */ }
-};
 
 /* ─── Delete Confirm Dialog ───────────────────── */
 interface DeleteDialogProps {
@@ -116,6 +111,9 @@ const AdminChat = () => {
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
     const [replyText, setReplyText] = useState("");
     const [sending, setSending] = useState(false);
+    const [selectedImages, setSelectedImages] = useState<File[]>([]);
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+    const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
     const [totalUnread, setTotalUnread] = useState(0);
     const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
     const [isTyping, setIsTyping] = useState(false);
@@ -156,7 +154,7 @@ const AdminChat = () => {
 
         socket.on("chatMessage", (data: { chatId: string; userName: string; message: Message }) => {
             if (data.message.sender !== "user") return;
-            playBeep();
+            playChatSound();
             // Update chat list badge — update cache directly to avoid refetch storm
             queryClient.setQueryData<ChatSession[]>(["admin-chats"], (old) => {
                 if (!old) return old;
@@ -222,11 +220,18 @@ const AdminChat = () => {
     }, []); // ← empty deps: socket created once, never recreated
 
     /* ── Auto-scroll (within container only) ───── */
+    const scrollToBottom = () => {
+        if (!messagesContainerRef.current) return;
+        messagesContainerRef.current.scrollTo({
+            top: messagesContainerRef.current.scrollHeight,
+            behavior: "smooth"
+        });
+    };
+
     useEffect(() => {
-        const container = messagesContainerRef.current;
-        if (!container) return;
-        container.scrollTop = container.scrollHeight;
-    }, [thread?.messages, isTyping]);
+        const timeout = setTimeout(scrollToBottom, 150);
+        return () => clearTimeout(timeout);
+    }, [thread?.messages, isTyping, activeChatId]);
 
     /* ── Open chat ──────────────────────────────── */
     const openChat = useCallback((chatId: string) => {
@@ -240,18 +245,52 @@ const AdminChat = () => {
         );
     }, [queryClient]);
 
+    /* ── Handle Images ──────────────────────────── */
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            const files = Array.from(e.target.files);
+            setSelectedImages((prev) => [...prev, ...files]);
+            const previews = files.map(f => URL.createObjectURL(f));
+            setImagePreviews((prev) => [...prev, ...previews]);
+        }
+        if (e.target) e.target.value = '';
+    };
+
+    const removeImage = (index: number) => {
+        setSelectedImages(prev => prev.filter((_, i) => i !== index));
+        setImagePreviews(prev => {
+            URL.revokeObjectURL(prev[index]);
+            return prev.filter((_, i) => i !== index);
+        });
+    };
+
     /* ── Send reply ─────────────────────────────── */
     const handleSend = async () => {
-        if (!replyText.trim() || !activeChatId) return;
+        if ((!replyText.trim() && selectedImages.length === 0) || !activeChatId || sending) return;
         setSending(true);
+        // Stop typing indicator on the user side immediately
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        socketRef.current?.emit("stopTyping", { chatId: activeChatId });
         try {
-            const res = await chatApi.adminReply(activeChatId, replyText.trim());
+            let uploadedImageUrls: string[] = [];
+            if (selectedImages.length > 0) {
+                uploadedImageUrls = await uploadApi.uploadMultipleImages(selectedImages);
+            }
+
+            const payload = {
+                text: replyText.trim(),
+                images: uploadedImageUrls
+            };
+
+            const res = await chatApi.adminReply(activeChatId, payload);
             const newMsg: Message = res.data;
             queryClient.setQueryData<ChatThread>(["admin-chat-thread", activeChatId], (old) => {
                 if (!old) return old;
                 return { ...old, messages: [...old.messages, newMsg] };
             });
             setReplyText("");
+            setSelectedImages([]);
+            setImagePreviews([]);
         } catch { /* error handled by axios interceptor */ }
         finally { setSending(false); }
     };
@@ -301,7 +340,7 @@ const AdminChat = () => {
             <div className="flex h-[calc(100vh-8rem)] overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
 
                 {/* ── Left: Chat List ─────────────────────── */}
-                <div className="flex w-full flex-col border-r border-border sm:w-80 flex-shrink-0">
+                <div className={`flex w-full flex-col border-r border-border sm:w-80 flex-shrink-0 transition-all ${activeChatId ? "hidden sm:flex" : "flex"}`}>
                     <div className="flex items-center justify-between border-b border-border px-4 py-4">
                         <div className="flex items-center gap-2">
                             <MessageSquare className="h-5 w-5 text-primary" />
@@ -344,12 +383,16 @@ const AdminChat = () => {
                                         className={`w-full rounded-xl px-3 py-3 text-left transition-all hover:bg-accent ${activeChatId === chat._id ? "bg-accent ring-1 ring-primary/30" : ""}`}
                                     >
                                         <div className="flex items-start gap-3">
-                                            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                                                {chat.userName?.[0]?.toUpperCase() || "U"}
+                                            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full overflow-hidden bg-primary/10 text-sm font-bold text-primary">
+                                                {chat.user?.profileImage ? (
+                                                    <img src={chat.user.profileImage} alt={chat.user?.name} className="h-full w-full object-cover" />
+                                                ) : (
+                                                    (chat.user?.name?.[0] || chat.userName?.[0] || "U").toUpperCase()
+                                                )}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between gap-1">
-                                                    <p className="truncate text-sm font-semibold text-foreground">{chat.userName}</p>
+                                                    <p className="truncate text-sm font-semibold text-foreground">{chat.user?.name || chat.userName}</p>
                                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                                         {chat.unreadByAdmin > 0 && (
                                                             <span className="flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
@@ -375,7 +418,7 @@ const AdminChat = () => {
                 </div>
 
                 {/* ── Right: Chat Thread ──────────────────── */}
-                <div className="flex flex-1 flex-col min-w-0">
+                <div className={`flex flex-1 flex-col min-w-0 transition-all ${!activeChatId ? "hidden sm:flex" : "flex"}`}>
                     {!activeChatId ? (
                         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center px-8">
                             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
@@ -389,22 +432,41 @@ const AdminChat = () => {
                     ) : (
                         <>
                             {/* Thread Header */}
-                            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                                        {thread?.userName?.[0]?.toUpperCase() || "U"}
+                            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3 min-w-0">
+                                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                    {/* Mobile Back Button */}
+                                    <button
+                                        onClick={() => setActiveChatId(null)}
+                                        className="sm:hidden mr-1 rounded-full p-1.5 flex-shrink-0 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                                    >
+                                        <X className="h-5 w-5" />
+                                    </button>
+
+                                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full overflow-hidden bg-primary/10 text-sm font-bold text-primary border border-primary/20">
+                                        {thread?.user?.profileImage ? (
+                                            <img src={thread.user.profileImage} alt={thread.user.name} className="h-full w-full object-cover" />
+                                        ) : (
+                                            (thread?.user?.name?.[0] || thread?.userName?.[0] || "U").toUpperCase()
+                                        )}
                                     </div>
-                                    <div>
-                                        <p className="text-sm font-bold text-foreground">{thread?.userName || "Loading…"}</p>
-                                        <p className="text-xs">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-bold text-foreground flex flex-wrap items-center gap-2 min-w-0">
+                                            <span className="truncate">{thread?.user?.name || thread?.userName || "Loading…"}</span>
+                                            {thread?.user?.mobile && (
+                                                <span className="text-[10px] sm:text-xs font-medium text-muted-foreground bg-accent px-1.5 py-0.5 rounded-md whitespace-nowrap">
+                                                    📱 {thread.user.mobile}
+                                                </span>
+                                            )}
+                                        </p>
+                                        <p className="text-xs flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
                                             {thread?.isOpen === false
-                                                ? <span className="text-red-500 font-medium">Chat closed</span>
-                                                : <span className="text-green-600 font-medium">Active</span>
+                                                ? <><span className="flex h-2 w-2 rounded-full bg-red-500 flex-shrink-0"></span><span className="text-red-500 font-medium">Chat closed</span></>
+                                                : <><span className="flex h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></span><span className="text-green-600 font-medium">Active</span></>
                                             }
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
                                     {thread?.isOpen && (
                                         <button
                                             onClick={() => closeThreadMutation.mutate(activeChatId)}
@@ -455,16 +517,33 @@ const AdminChat = () => {
                                                 className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}
                                             >
                                                 {!isAdmin && (
-                                                    <div className="mr-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground self-end">
-                                                        {thread.userName?.[0]?.toUpperCase()}
+                                                    <div className="mr-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground self-end overflow-hidden">
+                                                        {thread?.user?.profileImage ? (
+                                                            <img src={thread.user.profileImage} alt="" className="h-full w-full object-cover" />
+                                                        ) : (
+                                                            (thread?.user?.name?.[0] || thread?.userName?.[0] || "U").toUpperCase()
+                                                        )}
                                                     </div>
                                                 )}
                                                 <div className={`max-w-[72%] ${isAdmin ? "items-end" : "items-start"} flex flex-col`}>
                                                     <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${isAdmin
                                                         ? "rounded-br-sm bg-primary text-primary-foreground"
-                                                        : "rounded-bl-sm bg-muted text-foreground"}`}
+                                                        : "rounded-bl-sm bg-muted text-foreground"} ${(!msg.text && msg.images?.length) ? '!p-1 !bg-transparent shadow-none' : ''}`}
                                                     >
-                                                        {msg.text}
+                                                        {msg.images && msg.images.length > 0 && (
+                                                            <div className={`grid gap-1 ${msg.text ? 'mb-2' : ''} ${msg.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                                                {msg.images.map((url, i) => (
+                                                                    <img
+                                                                        key={i}
+                                                                        src={url}
+                                                                        alt="attachment"
+                                                                        className="rounded-xl object-cover max-h-48 w-full border border-border/20 shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                                                                        onClick={() => setFullscreenImage(url)}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {msg.text && <p>{msg.text}</p>}
                                                     </div>
                                                     <div className={`mt-1 flex items-center gap-1 text-[10px] text-muted-foreground ${isAdmin ? "flex-row-reverse" : ""}`}>
                                                         <span>{formatTime(msg.createdAt)}</span>
@@ -497,8 +576,12 @@ const AdminChat = () => {
                                             exit={{ opacity: 0, y: 6 }}
                                             className="flex items-end gap-2"
                                         >
-                                            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                                                {thread?.userName?.[0]?.toUpperCase()}
+                                            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground overflow-hidden">
+                                                {thread?.user?.profileImage ? (
+                                                    <img src={thread.user.profileImage} alt="" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    (thread?.user?.name?.[0] || thread?.userName?.[0] || "U").toUpperCase()
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-muted px-4 py-3">
                                                 {[0, 1, 2].map((i) => (
@@ -521,11 +604,37 @@ const AdminChat = () => {
                                     This chat has been closed.
                                 </div>
                             ) : (
-                                <div className="border-t border-border px-4 py-3">
+                                <div className="border-t border-border px-4 py-3 bg-card z-10 relative">
+                                    {imagePreviews.length > 0 && (
+                                        <div className="flex gap-2 mb-3 overflow-x-auto pb-2 scrollbar-none">
+                                            {imagePreviews.map((preview, i) => (
+                                                <div key={i} className="relative h-16 w-16 flex-shrink-0 animate-in fade-in zoom-in duration-200">
+                                                    <img src={preview} className="h-16 w-16 rounded-xl object-cover border border-border shadow-sm" />
+                                                    <button onClick={() => removeImage(i)} className="absolute -top-2 -right-2 h-5 w-5 bg-background rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-red-500 shadow-sm">
+                                                        <XCircle className="h-4 w-4 fill-background" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                     <div className="flex items-end gap-2">
+                                        <input type="file" multiple accept="image/*" className="hidden" id="admin-chat-images" onChange={handleImageSelect} />
+                                        <label htmlFor="admin-chat-images" className="flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-xl text-muted-foreground bg-muted/30 hover:bg-accent hover:text-foreground transition-colors">
+                                            <ImagePlus className="h-5 w-5" />
+                                        </label>
                                         <textarea
                                             value={replyText}
-                                            onChange={(e) => setReplyText(e.target.value)}
+                                            onChange={(e) => {
+                                                setReplyText(e.target.value);
+                                                // Emit typing indicator to user
+                                                if (socketRef.current && activeChatId) {
+                                                    socketRef.current.emit("typing", { chatId: activeChatId });
+                                                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                                                    typingTimeoutRef.current = setTimeout(() => {
+                                                        socketRef.current?.emit("stopTyping", { chatId: activeChatId });
+                                                    }, 1500);
+                                                }
+                                            }}
                                             onKeyDown={(e) => {
                                                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
                                             }}
@@ -536,7 +645,7 @@ const AdminChat = () => {
                                         />
                                         <button
                                             onClick={handleSend}
-                                            disabled={!replyText.trim() || sending}
+                                            disabled={(!replyText.trim() && selectedImages.length === 0) || sending}
                                             className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md transition-all hover:brightness-110 disabled:opacity-50"
                                         >
                                             {sending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -548,6 +657,38 @@ const AdminChat = () => {
                     )}
                 </div>
             </div>
+
+            {/* Fullscreen Image Modal (Rendered above everything inside this component) */}
+            <AnimatePresence>
+                {fullscreenImage && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
+                        onClick={() => setFullscreenImage(null)}
+                    >
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setFullscreenImage(null);
+                            }}
+                            className="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition-colors"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+                        <motion.img
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                            src={fullscreenImage}
+                            className="max-h-full max-w-full object-contain rounded-lg"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </>
     );
 };

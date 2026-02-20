@@ -76,7 +76,7 @@ export function ProductDetailDrawer({
             await addItem({
                 _id: product._id,
                 name: product.name,
-                price: product.price,
+                price: Number(displayPrice),
                 image: imageUrl,
                 type: product.type,
                 category: typeof product.category === 'object' ? product.category._id : product.category,
@@ -119,11 +119,11 @@ export function ProductDetailDrawer({
                     {/* Full-screen panel */}
                     <motion.div
                         key="panel"
-                        initial={{ opacity: 0, scale: 0.96, y: 20 }}
+                        initial={{ opacity: 0, scale: 0.96, y: "100%" }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.96, y: 20 }}
+                        exit={{ opacity: 0, scale: 0.96, y: "100%" }}
                         transition={{ duration: 0.25, ease: "easeOut" }}
-                        className="fixed inset-x-0 bottom-0 top-0 z-50 flex flex-col bg-background sm:inset-x-auto sm:left-1/2 sm:top-1/2 sm:h-[90vh] sm:w-[480px] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:shadow-2xl"
+                        className="fixed bottom-0 left-0 right-0 z-50 mx-auto flex h-fit max-h-[90vh] w-full flex-col bg-background sm:top-1/2 sm:-translate-y-1/2 sm:bottom-auto sm:w-[480px] sm:rounded-2xl shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Close Button */}
@@ -143,7 +143,7 @@ export function ProductDetailDrawer({
                             ) : product ? (
                                 <>
                                     {/* Hero Image — takes up top half */}
-                                    <div className="relative h-[45vh] w-full sm:h-[45%]">
+                                    <div className="relative h-[45vh] w-full sm:h-[300px]">
                                         <img
                                             src={imageUrl}
                                             alt={product.name}

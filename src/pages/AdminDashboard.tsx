@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { adminApi } from "@/api/axios";
+import { toast } from "sonner";
+import { socket } from "@/api/socket";
+import { playNewOrderSound, playChatSound } from "@/lib/notification-sound";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard, UtensilsCrossed, Layers, ClipboardList, BarChart3,
@@ -18,10 +21,11 @@ import AdminOrders from "@/components/AdminOrders";
 import DashboardAnalytics from "@/components/DashboardAnalytics";
 import AdminReviews from "@/components/AdminReviews";
 import AdminChat from "@/components/AdminChat";
+import HeroVideoManager from "@/components/HeroVideoManager";
 
-type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "coupons" | "settings" | "users" | "reviews" | "chat";
+type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "coupons" | "settings" | "users" | "reviews" | "chat" | "videos";
 
-const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "coupons", "settings", "users", "reviews", "chat"];
+const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "coupons", "settings", "users", "reviews", "chat", "videos"];
 
 const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,6 +36,7 @@ const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "coupons", label: "Coupons", icon: Tag },
   { key: "users", label: "Users", icon: Users },
   { key: "orders", label: "Orders", icon: ClipboardList },
+  { key: "videos", label: "Hero Videos", icon: Package },
   { key: "chat", label: "Chat", icon: MessageSquare },
   { key: "settings", label: "Settings", icon: Settings },
 ];
@@ -39,9 +44,50 @@ const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
 // ... (statCards array stays same)
 
 const AdminDashboard = () => {
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab") as AdminTab | null;
   const activeTab: AdminTab = tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : "dashboard";
+
+  // Global socket listeners — orders + chat (from any admin section)
+  useEffect(() => {
+    // JOIN the admin room so this socket receives chatMessage events
+    socket.emit("joinAdminChat");
+
+    socket.on("newOrder", (data: any) => {
+      playNewOrderSound();
+      toast.info(`🛎️ New Order: ${data.orderId || data.customId || "Incoming!"}`, {
+        duration: 8000,
+        description: "A new order has been placed. Check the orders list.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+    });
+
+    socket.on("chatMessage", (data: { chatId: string; userName?: string; message: any }) => {
+      // Only ring for messages sent BY users (not admin's own messages)
+      if (data.message?.sender !== "user") return;
+
+      playChatSound();
+
+      toast(`💬 ${data.userName || "Customer"}`, {
+        description: data.message.text || "Sent an attachment",
+        duration: 7000,
+        action: {
+          label: "Open Chat",
+          onClick: () => setActiveTab("chat"),
+        },
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["admin-chats"] });
+    });
+
+    return () => {
+      socket.off("newOrder");
+      socket.off("chatMessage");
+    };
+  }, [queryClient]);
+
 
   const setActiveTab = (tab: AdminTab) => {
     const currentMode = searchParams.get("mode") || "NORMAL";
@@ -152,6 +198,8 @@ const AdminDashboard = () => {
         return <AdminReviews />;
       case "chat":
         return <AdminChat />;
+      case "videos":
+        return <HeroVideoManager />;
       default:
         return null;
     }
@@ -167,10 +215,14 @@ const AdminDashboard = () => {
         {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-sidebar-border bg-sidebar pt-20 transition-transform duration-300 md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-sidebar-border bg-sidebar pt-20 transition-transform duration-300 md:sticky md:top-0 md:h-screen md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="px-4 pb-4">
           <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Admin Panel</h2>
@@ -197,13 +249,8 @@ const AdminDashboard = () => {
         </nav>
       </aside>
 
-      {/* Overlay for mobile */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
       {/* Main Content */}
-      <main className="flex-1 px-4 py-8 md:px-8">
+      <main className="flex-1 w-full min-w-0 overflow-x-hidden px-4 py-8 md:px-8">
         {renderContent()}
       </main>
 
@@ -299,7 +346,7 @@ const DashboardView = ({ stats, isLoading }: { stats: DashboardStats; isLoading:
 
       <div className="grid gap-8 xl:grid-cols-3">
         {/* Top Selling Items (Left Column) */}
-        <div className="xl:col-span-1">
+        <div className="xl:col-span-1 min-w-0">
           <div className="h-full rounded-2xl border border-border bg-card shadow-sm transition-all hover:shadow-md">
             <div className="flex items-center justify-between border-b border-border p-6">
               <h3 className="text-lg font-bold text-foreground">🔥 Top Items</h3>
@@ -343,7 +390,7 @@ const DashboardView = ({ stats, isLoading }: { stats: DashboardStats; isLoading:
         </div>
 
         {/* Recent Orders (Right 2 Columns) */}
-        <div className="xl:col-span-2">
+        <div className="xl:col-span-2 min-w-0">
           <div className="h-full rounded-2xl border border-border bg-card shadow-sm">
             <div className="flex items-center justify-between border-b border-border p-6">
               <h3 className="text-lg font-bold text-foreground">📦 Recent Orders</h3>
@@ -356,7 +403,7 @@ const DashboardView = ({ stats, isLoading }: { stats: DashboardStats; isLoading:
               ) : !stats?.recentOrders?.length ? (
                 <div className="p-6 text-center text-muted-foreground">No recent orders.</div>
               ) : (
-                <table className="w-full text-left text-sm">
+                <table className="w-full min-w-[800px] text-left text-sm">
                   <thead className="bg-muted/50 text-muted-foreground">
                     <tr>
                       <th className="px-6 py-4 font-medium">Order Details</th>

@@ -78,7 +78,7 @@ const AdminReviews = () => {
                     ) : !reviews?.length ? (
                         <div className="p-12 text-center text-muted-foreground">No reviews found.</div>
                     ) : (
-                        <table className="w-full text-left text-sm">
+                        <table className="w-full min-w-[800px] text-left text-sm">
                             <thead className="bg-muted/50 text-muted-foreground">
                                 <tr>
                                     <th className="px-6 py-4 font-medium">Customer</th>

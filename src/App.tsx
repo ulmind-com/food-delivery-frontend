@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -25,6 +25,10 @@ import { useRestaurantStore } from "./store/useRestaurantStore";
 import { useCartStore } from "./store/useCartStore";
 import { useAuthStore } from "./store/useAuthStore";
 import { useLocationStore } from "./store/useLocationStore";
+import { socket } from "./api/socket";
+import { toast } from "sonner";
+import { playChatSound } from "./lib/notification-sound";
+import CustomerChatDrawer from "./components/CustomerChatDrawer";
 
 // Dynamically set favicon from a URL
 const setFavicon = (url: string) => {
@@ -52,8 +56,9 @@ const AppContent = () => {
   const setRestaurant = useRestaurantStore((s) => s.setRestaurant);
   const setLoading = useRestaurantStore((s) => s.setLoading);
   const fetchCart = useCartStore((s) => s.fetchCart);
-  const { token, setUser } = useAuthStore();
+  const { token, setUser, user, isAdmin } = useAuthStore();
   const setSelectedAddress = useLocationStore((s) => s.setSelectedAddress);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     restaurantApi
@@ -61,6 +66,41 @@ const AppContent = () => {
       .then((res) => setRestaurant(res.data))
       .catch(() => setLoading(false));
   }, []);
+
+  // Global chat notification for user (only when NOT admin and logged in)
+  useEffect(() => {
+    if (!token || isAdmin()) return;
+
+    // Fetch the user's chat session and join the socket room
+    // so this global socket actually receives admin reply events
+    import("./api/axios").then(({ chatApi }) => {
+      chatApi.getOrCreateChat().then((res) => {
+        const chatId = res.data._id;
+        if (chatId) socket.emit("joinChat", chatId);
+      }).catch(() => {/* chat not yet created - ignore */ });
+    });
+
+    socket.on("chatMessage", (data: { chatId: string; message: any }) => {
+      // Only ring for admin replies
+      if (data.message?.sender !== "admin") return;
+
+      playChatSound();
+
+      toast(`💬 Reply from Restaurant`, {
+        description: data.message.text || "You got a new message!",
+        duration: 7000,
+        action: {
+          label: "Open Chat",
+          onClick: () => setChatOpen(true),
+        },
+      });
+    });
+
+    return () => {
+      socket.off("chatMessage");
+    };
+  }, [token, user?.role]);
+
 
   // Dynamically set page title + favicon from restaurant API
   useEffect(() => {
@@ -116,6 +156,7 @@ const AppContent = () => {
       <CartDrawer />
       <CartBar />
       <AuthModal />
+      <CustomerChatDrawer isOpen={chatOpen} onClose={() => setChatOpen(false)} />
       <Routes>
         <Route path="/" element={<Index />} />
         <Route

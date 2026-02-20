@@ -398,7 +398,7 @@ const CheckoutPage = () => {
                             onClick={() => addItem({
                               _id: product._id,
                               name: product.name,
-                              price: product.variants?.[0]?.price || product.price || 0,
+                              price: Number(product.variants?.[0]?.price || product.price || 0),
                               image: product.imageURL,
                               type: product.type,
                               category: typeof product.category === 'object' ? product.category?._id : product.category

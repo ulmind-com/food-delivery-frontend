@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Search, ArrowRight } from "lucide-react";
-import { menuApi } from "@/api/axios";
+import { menuApi, restaurantApi } from "@/api/axios";
 import { useAuthStore } from "@/store/useAuthStore";
 import ProductCard from "@/components/ProductCard";
 import CategoryCarousel from "@/components/CategoryCarousel";
@@ -21,7 +21,7 @@ import { useRestaurantStore } from "@/store/useRestaurantStore";
 
 import ReviewModal from "@/components/ReviewModal";
 
-const VIDEOS = ["/burger.mp4", "/icecream.mp4", "/coocking.mp4"];
+const FALLBACK_VIDEOS = ["/burger.mp4", "/icecream.mp4", "/coocking.mp4"];
 
 const Index = () => {
   const [search, setSearch] = useState("");
@@ -102,6 +102,24 @@ const Index = () => {
     queryFn: () => menuApi.getCategories().then((r) => r.data),
   });
 
+  // Fetch admin-configured hero videos
+  const { data: heroVideosData } = useQuery({
+    queryKey: ["hero-videos"],
+    queryFn: () => restaurantApi.getVideos().then((r) => r.data.videos as string[]),
+  });
+
+  // Admin videos are ALWAYS shown first.
+  // Empty slots are filled with randomly-picked local fallbacks (stable, no reshuffling on re-render).
+  const videos = useMemo(() => {
+    const cloudinary = heroVideosData || [];
+    const needed = 3 - cloudinary.length;
+    if (needed <= 0) return cloudinary.slice(0, 3); // all 3 from cloudinary
+    const shuffled = [...FALLBACK_VIDEOS].sort(() => Math.random() - 0.5);
+    return [...cloudinary, ...shuffled.slice(0, needed)]; // admin first, fallback fills the rest
+  }, [heroVideosData]);
+
+
+
   /* ──────────────── Menu Fetching Logic ──────────────── */
   // Per user request, we use specific endpoints based on interaction
   const { data: rawMenuItems, isLoading: menuLoading } = useQuery({
@@ -154,14 +172,14 @@ const Index = () => {
         <video
           ref={videoRef}
           key={currentVideoIndex}
-          src={VIDEOS[currentVideoIndex]}
+          src={videos[currentVideoIndex]}
           autoPlay
           muted
           playsInline
           onEnded={() => {
             setVideoVisible(false);
             setTimeout(() => {
-              setCurrentVideoIndex((prev) => (prev + 1) % VIDEOS.length);
+              setCurrentVideoIndex((prev) => (prev + 1) % videos.length);
               setVideoVisible(true);
             }, 400);
           }}

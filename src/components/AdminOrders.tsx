@@ -11,7 +11,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { socket } from "@/api/socket";
-import { playNewOrderSound } from "@/lib/notification-sound";
 import QRCode from "react-qr-code";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -86,22 +85,6 @@ const AdminOrders = () => {
     },
     onError: () => toast.error("Failed to update payment status"),
   });
-
-  useEffect(() => {
-    socket.on("newOrder", (data: any) => {
-      playNewOrderSound();
-      toast.info(`🛎️ New Order: ${data.orderId || data.customId || "Incoming!"}`, {
-        duration: 6000,
-        description: "A new order has been placed. Check the orders list.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
-    });
-
-    return () => {
-      socket.off("newOrder");
-    };
-  }, [queryClient]);
 
   const downloadCSV = () => {
     if (!orders.length) return toast.error("No data to export");
@@ -234,7 +217,7 @@ const AdminOrders = () => {
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[900px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="px-4 py-3 text-left font-bold text-muted-foreground">Order</th>
@@ -511,7 +494,7 @@ const AdminOrders = () => {
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Items Ordered</p>
                   <div className="overflow-hidden rounded-xl border border-border">
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[500px] text-sm">
                       <thead>
                         <tr className="border-b border-border bg-muted/50">
                           <th className="px-4 py-2.5 text-left font-bold text-muted-foreground">Item</th>

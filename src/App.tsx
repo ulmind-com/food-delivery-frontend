@@ -107,7 +107,7 @@ const AppContent = () => {
       queryClient.clear();
       setSelectedAddress(null);
     }
-  }, [token, fetchCart, setUser, setSelectedAddress, queryClient]);
+  }, [token]); // fetchCart/setUser/setSelectedAddress are stable Zustand actions — no need in deps
 
   return (
     <BrowserRouter>

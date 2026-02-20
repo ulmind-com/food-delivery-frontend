@@ -11,8 +11,9 @@ import { io } from "socket.io-client";
 import {
     ArrowLeft, ShoppingBag, CheckCircle, ChefHat, Bike,
     XCircle, Clock, MapPin, CreditCard, Package, RefreshCw,
-    Navigation, Layers,
+    Navigation, Layers, Phone, MessageCircle,
 } from "lucide-react";
+import CustomerChatDrawer from "@/components/CustomerChatDrawer";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { playOrderPlacedSound } from "@/lib/notification-sound";
@@ -550,10 +551,11 @@ const OrderTracking = () => {
 
     // ── Real-time status via Socket.IO ───────────────────────────────────
     const [liveStatus, setLiveStatus] = useState<string | null>(null);
+    const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
 
     useEffect(() => {
         if (!id) return;
-        const socket = io("https://food-delivery-backend-0aib.onrender.com", { transports: ["websocket", "polling"] });
+        const socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
         socket.emit("joinOrder", id);
         socket.on("orderStatusUpdated", (data: { orderId: string; status: string }) => {
             if (data.status) {
@@ -768,6 +770,57 @@ const OrderTracking = () => {
                 </motion.div>
             )}
 
+            {/* ── Restaurant Contact Card ───────────────────────────────── */}
+            {restaurant?.mobile && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.12 }}
+                    className="mb-5 rounded-2xl border border-border bg-card p-4 shadow-sm"
+                >
+                    <div className="flex items-center justify-between gap-4">
+                        {/* Logo + Name */}
+                        <div className="flex items-center gap-3">
+                            {restaurant.logo ? (
+                                <img
+                                    src={restaurant.logo}
+                                    alt={restaurant.name}
+                                    className="h-11 w-11 rounded-xl object-cover border border-border shadow-sm flex-shrink-0"
+                                />
+                            ) : (
+                                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                                    <Package className="h-5 w-5 text-primary" />
+                                </div>
+                            )}
+                            <div>
+                                <p className="text-sm font-bold text-foreground leading-tight">{restaurant.name}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Need help with your order?</p>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Call */}
+                            <a
+                                href={`tel:${restaurant.mobile.replace(/\s/g, "")}`}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
+                                title="Call Restaurant"
+                            >
+                                <Phone className="h-4 w-4" />
+                            </a>
+                            {/* In-app Chat */}
+                            <button
+                                onClick={() => setChatDrawerOpen(true)}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-600 hover:bg-green-500/20 transition-colors"
+                                title="Chat with Restaurant"
+                            >
+                                <MessageCircle className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
             {/* ── Status Stepper ────────────────────────────────────────── */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -921,6 +974,17 @@ const OrderTracking = () => {
                     />
                 </motion.div>
             )}
+
+            {/* ── Customer Chat Drawer ─────────────────────────────────── */}
+            <AnimatePresence>
+                {chatDrawerOpen && (
+                    <CustomerChatDrawer
+                        key="customer-chat"
+                        isOpen={chatDrawerOpen}
+                        onClose={() => setChatDrawerOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 };

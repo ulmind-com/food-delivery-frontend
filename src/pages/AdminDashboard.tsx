@@ -17,10 +17,11 @@ import AdminUsers from "@/components/AdminUsers";
 import AdminOrders from "@/components/AdminOrders";
 import DashboardAnalytics from "@/components/DashboardAnalytics";
 import AdminReviews from "@/components/AdminReviews";
+import AdminChat from "@/components/AdminChat";
 
-type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "coupons" | "settings" | "users" | "reviews";
+type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "coupons" | "settings" | "users" | "reviews" | "chat";
 
-const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "coupons", "settings", "users", "reviews"];
+const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "coupons", "settings", "users", "reviews", "chat"];
 
 const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -31,6 +32,7 @@ const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "coupons", label: "Coupons", icon: Tag },
   { key: "users", label: "Users", icon: Users },
   { key: "orders", label: "Orders", icon: ClipboardList },
+  { key: "chat", label: "Chat", icon: MessageSquare },
   { key: "settings", label: "Settings", icon: Settings },
 ];
 
@@ -146,6 +148,10 @@ const AdminDashboard = () => {
         return <RestaurantSettings />;
       case "orders":
         return <AdminOrders />;
+      case "reviews":
+        return <AdminReviews />;
+      case "chat":
+        return <AdminChat />;
       default:
         return null;
     }

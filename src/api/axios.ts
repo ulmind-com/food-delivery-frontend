@@ -1,7 +1,7 @@
 import axios from "axios";
 import { toast } from "sonner";
 
-const API_BASE_URL = "https://food-delivery-backend-0aib.onrender.com/api";
+const API_BASE_URL = "http://localhost:5000/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -67,7 +67,7 @@ export const userApi = {
 // ─── Restaurant ─────────────────────────────
 export const restaurantApi = {
   get: () => api.get("/restaurant"),
-  update: (data: { isOpen?: boolean; name?: string; address?: string; deliveryRadius?: number }) =>
+  update: (data: { isOpen?: boolean; name?: string; address?: string; deliveryRadius?: number; mobile?: string; logo?: string; gstIn?: string; fssaiLicense?: string }) =>
     api.put("/restaurant", data),
   setLocation: (data: { lat: number; lng: number; address?: string }) =>
     api.put("/restaurant/location", data),
@@ -193,4 +193,19 @@ export const adminApi = {
   addMenuItem: (data: any) => api.post("/menu", data),
   updateMenuItem: (id: string, data: any) => api.put(`/menu/${id}`, data),
   deleteMenuItem: (id: string) => api.delete(`/menu/${id}`),
+};
+
+// ─── Chat ────────────────────────────────────
+export const chatApi = {
+  // User endpoints
+  getOrCreateChat: () => api.get("/chat"),
+  sendMessage: (text: string) => api.post("/chat/message", { text }),
+  markRead: () => api.put("/chat/read"),
+
+  // Admin endpoints
+  getAllChats: () => api.get("/chat/admin/all"),
+  getChatById: (chatId: string) => api.get(`/chat/admin/${chatId}`),
+  adminReply: (chatId: string, text: string) => api.post(`/chat/admin/${chatId}/message`, { text }),
+  closeChat: (chatId: string) => api.put(`/chat/admin/${chatId}/close`),
+  deleteChat: (chatId: string) => api.delete(`/chat/admin/${chatId}`),
 };

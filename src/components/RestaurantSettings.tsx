@@ -212,19 +212,25 @@ const RestaurantSettings = () => {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  const [form, setForm] = useState({ name: "", address: "", deliveryRadius: "", gstIn: "", fssaiLicense: "" });
+  const [form, setForm] = useState({ name: "", address: "", deliveryRadius: "", gstIn: "", fssaiLicense: "", mobile: "" });
+  const [dialCode, setDialCode] = useState("+91");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     if (restaurant) {
+      const storedMobile = restaurant.mobile || "";
+      // Parse dial code from stored mobile (e.g. "+91 98765..." → dialCode="+91")
+      const match = storedMobile.match(/^(\+\d{1,4})\s*/);
+      if (match) setDialCode(match[1]);
       setForm({
         name: restaurant.name || "",
         address: restaurant.address || "",
         deliveryRadius: String(restaurant.deliveryRadius || ""),
         gstIn: restaurant.gstIn || "",
         fssaiLicense: restaurant.fssaiLicense || "",
+        mobile: storedMobile,
       });
       if (restaurant.logo) setLogoPreview(restaurant.logo);
     }
@@ -280,6 +286,7 @@ const RestaurantSettings = () => {
         deliveryRadius: Number(form.deliveryRadius) || undefined,
         gstIn: form.gstIn,
         fssaiLicense: form.fssaiLicense,
+        mobile: form.mobile || undefined,
         logo: logoURL,
       });
       setRestaurant(res.data);
@@ -463,6 +470,52 @@ const RestaurantSettings = () => {
                 className="mt-1.5"
                 min={1}
               />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Mobile Number
+              </Label>
+              <div className="mt-1.5 flex overflow-hidden rounded-lg border border-input bg-background ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                {/* Country code selector */}
+                <select
+                  value={dialCode}
+                  onChange={(e) => {
+                    setDialCode(e.target.value);
+                    // Update combined mobile value
+                    const num = form.mobile.replace(/^\+\d+\s*/, "");
+                    setForm({ ...form, mobile: e.target.value + " " + num });
+                  }}
+                  className="flex-shrink-0 border-r border-input bg-muted px-2 py-2 text-sm font-medium text-foreground outline-none cursor-pointer hover:bg-accent transition-colors"
+                >
+                  <option value="+91">🇮🇳 +91</option>
+                  <option value="+1">🇺🇸 +1</option>
+                  <option value="+44">🇬🇧 +44</option>
+                  <option value="+971">🇦🇪 +971</option>
+                  <option value="+61">🇦🇺 +61</option>
+                  <option value="+65">🇸🇬 +65</option>
+                  <option value="+60">🇲🇾 +60</option>
+                  <option value="+880">🇧🇩 +880</option>
+                  <option value="+92">🇵🇰 +92</option>
+                  <option value="+94">🇱🇰 +94</option>
+                  <option value="+977">🇳🇵 +977</option>
+                  <option value="+49">🇩🇪 +49</option>
+                  <option value="+33">🇫🇷 +33</option>
+                  <option value="+81">🇯🇵 +81</option>
+                  <option value="+86">🇨🇳 +86</option>
+                </select>
+                {/* Number input */}
+                <input
+                  type="tel"
+                  value={form.mobile.replace(/^[+\d]+\s*/, "")}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/[^\d\s\-]/g, "");
+                    setForm({ ...form, mobile: dialCode + " " + digits });
+                  }}
+                  placeholder="98765 43210"
+                  className="flex-1 bg-transparent px-3 py-2 text-sm outline-none placeholder:text-muted-foreground"
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

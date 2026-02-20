@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Search, ArrowRight } from "lucide-react";
@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import ProductCard from "@/components/ProductCard";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import { SkeletonCard, SkeletonCategory } from "@/components/Skeletons";
-import heroBg from "@/assets/hero-bg.jpg";
+
 
 const PLACEHOLDER_TEXTS = [
   "Search for Biryani...",
@@ -21,11 +21,16 @@ import { useRestaurantStore } from "@/store/useRestaurantStore";
 
 import ReviewModal from "@/components/ReviewModal";
 
+const VIDEOS = ["/burger.mp4", "/icecream.mp4", "/cooking.mp4"];
+
 const Index = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
   const [placeholder, setPlaceholder] = useState(PLACEHOLDER_TEXTS[0]);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [videoVisible, setVideoVisible] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const { isAuthenticated, isAdmin } = useAuthStore();
   const restaurant = useRestaurantStore((s) => s.restaurant);
 
@@ -136,10 +141,26 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Hero — Premium Single Restaurant */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0">
-          <img src={heroBg} alt="" className="h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/40" />
-        </div>
+        {/* Video Background */}
+        <video
+          ref={videoRef}
+          key={currentVideoIndex}
+          src={VIDEOS[currentVideoIndex]}
+          autoPlay
+          muted
+          playsInline
+          onEnded={() => {
+            setVideoVisible(false);
+            setTimeout(() => {
+              setCurrentVideoIndex((prev) => (prev + 1) % VIDEOS.length);
+              setVideoVisible(true);
+            }, 400);
+          }}
+          className={`absolute top-0 left-0 w-full h-full object-cover z-0 transition-opacity duration-500 ${videoVisible ? "opacity-100" : "opacity-0"
+            }`}
+        />
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-black/60 z-[1]" />
 
         <div className="relative z-10 container mx-auto px-4 py-20 md:py-32">
           <motion.p

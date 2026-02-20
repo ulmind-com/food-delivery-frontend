@@ -62,8 +62,10 @@ export function ProductDetailDrawer({
 
         const imageUrl = resolveImageURL(product.image || product.imageURL);
 
+        onClose();
+        toggleCart(); // Open cart sidebar immediately
+
         if (cartItem) {
-            // Already in cart — adjust quantity to match localQty
             const diff = localQty - cartItem.quantity;
             if (diff > 0) {
                 for (let i = 0; i < diff; i++) await incrementItem(cartItem.itemId);
@@ -71,7 +73,6 @@ export function ProductDetailDrawer({
                 for (let i = 0; i < Math.abs(diff); i++) await decrementItem(cartItem.itemId);
             }
         } else {
-            // Add fresh — addItem adds 1, then increment the rest
             await addItem({
                 _id: product._id,
                 name: product.name,
@@ -80,9 +81,6 @@ export function ProductDetailDrawer({
                 type: product.type,
                 category: typeof product.category === 'object' ? product.category._id : product.category,
             });
-            // addItem adds 1; increment for remaining qty
-            // We need to wait for cart to refresh so itemId is available
-            // Use a small delay then increment
             if (localQty > 1) {
                 setTimeout(async () => {
                     const updatedCart = useCartStore.getState().items;
@@ -95,9 +93,6 @@ export function ProductDetailDrawer({
                 }, 500);
             }
         }
-
-        onClose();
-        toggleCart(); // Open cart sidebar
     };
 
     if (!isOpen) return null;
@@ -209,38 +204,38 @@ export function ProductDetailDrawer({
                         </div>
 
                         {/* Sticky Footer */}
-                        {product && !loading && (
+                        {product && (
                             <div className="border-t border-border bg-background px-6 py-4 pb-safe">
                                 <div className="flex items-center gap-4">
                                     {/* Quantity Selector */}
-                                    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-2 py-1 shadow-sm">
+                                    <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-2 py-1 shadow-sm">
                                         <button
                                             onClick={() => setLocalQty((q) => Math.max(1, q - 1))}
-                                            className="flex h-10 w-10 items-center justify-center rounded-lg text-swiggy-danger transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-90"
+                                            className="flex h-8 w-8 items-center justify-center rounded-lg text-swiggy-danger transition-colors hover:bg-red-50 dark:hover:bg-red-900/20 active:scale-90"
                                         >
-                                            <Minus className="h-5 w-5" />
+                                            <Minus className="h-4 w-4" />
                                         </button>
-                                        <span className="w-6 text-center text-xl font-bold text-foreground">
+                                        <span className="w-5 text-center text-base font-bold text-foreground">
                                             {localQty}
                                         </span>
                                         <button
                                             onClick={() => setLocalQty((q) => q + 1)}
-                                            className="flex h-10 w-10 items-center justify-center rounded-lg text-swiggy-success transition-colors hover:bg-green-50 dark:hover:bg-green-900/20 active:scale-90"
+                                            className="flex h-8 w-8 items-center justify-center rounded-lg text-swiggy-success transition-colors hover:bg-green-50 dark:hover:bg-green-900/20 active:scale-90"
                                         >
-                                            <Plus className="h-5 w-5" />
+                                            <Plus className="h-4 w-4" />
                                         </button>
                                     </div>
 
                                     {/* Add to Cart Button */}
                                     <button
                                         onClick={handleAddToCart}
-                                        className="flex flex-1 items-center justify-between rounded-xl bg-primary px-5 py-3.5 text-primary-foreground shadow-lg transition-transform active:scale-95 hover:opacity-90"
+                                        className="flex flex-1 items-center justify-between rounded-xl bg-primary px-4 py-2.5 text-primary-foreground shadow-lg transition-transform active:scale-95 hover:opacity-90"
                                     >
                                         <div className="flex items-center gap-2">
-                                            <ShoppingCart className="h-5 w-5" />
-                                            <span className="text-base font-bold">Add to Cart</span>
+                                            <ShoppingCart className="h-4 w-4" />
+                                            <span className="text-sm font-bold">Add to Cart</span>
                                         </div>
-                                        <span className="text-base font-bold">₹{totalPrice}</span>
+                                        <span className="text-sm font-bold">₹{totalPrice}</span>
                                     </button>
                                 </div>
                             </div>

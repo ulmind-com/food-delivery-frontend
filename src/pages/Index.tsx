@@ -21,10 +21,11 @@ import { useRestaurantStore } from "@/store/useRestaurantStore";
 
 import ReviewModal from "@/components/ReviewModal";
 
-const VIDEOS = ["/burger.mp4", "/icecream.mp4", "/cooking.mp4"];
+const VIDEOS = ["/burger.mp4", "/icecream.mp4", "/coocking.mp4"];
 
 const Index = () => {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
   const [placeholder, setPlaceholder] = useState(PLACEHOLDER_TEXTS[0]);
@@ -33,6 +34,12 @@ const Index = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { isAuthenticated, isAdmin } = useAuthStore();
   const restaurant = useRestaurantStore((s) => s.restaurant);
+
+  // Debounce search input — only fire API after user stops typing for 400ms
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const isAdminUser = isAuthenticated() && isAdmin();
 
@@ -97,29 +104,31 @@ const Index = () => {
 
   /* ──────────────── Menu Fetching Logic ──────────────── */
   // Per user request, we use specific endpoints based on interaction
-  const { data: menuItems, isLoading: menuLoading } = useQuery({
-    queryKey: ["menu", category, vegOnly, search],
+  const { data: rawMenuItems, isLoading: menuLoading } = useQuery({
+    queryKey: ["menu", category, vegOnly, debouncedSearch],
     queryFn: async () => {
       if (category) {
-        // User requested to use GET /api/categories/{id} when a category is clicked
         const res = await menuApi.getCategoryById(category);
         let products = res.data.products || [];
-
-        // Client-side filtering for Veg/Search since we are using specific category endpoint
         if (vegOnly) products = products.filter((p: any) => p.type === "Veg");
-        if (search) products = products.filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()));
-
         return products;
       } else {
-        // Default behavior: Search/Filter across all items
         const res = await menuApi.getMenu({
           type: vegOnly ? "Veg" : undefined,
-          search: search || undefined,
+          search: debouncedSearch || undefined,
         });
         return res.data;
       }
     },
   });
+
+  // Client-side filter uses live `search` for instant results (no flash)
+  // API call uses debouncedSearch to avoid spamming the server
+  const menuItems = search
+    ? rawMenuItems?.filter((p: any) =>
+      p.name.toLowerCase().includes(search.toLowerCase())
+    )
+    : rawMenuItems;
 
   // Admin users go to /admin — this page is customer-only
   if (isAdminUser) {
@@ -156,13 +165,13 @@ const Index = () => {
               setVideoVisible(true);
             }, 400);
           }}
-          className={`absolute top-0 left-0 w-full h-full object-cover z-0 transition-opacity duration-500 ${videoVisible ? "opacity-100" : "opacity-0"
+          className={`absolute top-0 left-0 w-full h-full object-cover object-center z-0 transition-opacity duration-500 ${videoVisible ? "opacity-100" : "opacity-0"
             }`}
         />
         {/* Dark overlay */}
-        <div className="absolute inset-0 bg-black/60 z-[1]" />
+        <div className="absolute inset-0 bg-black/35 z-[1]" />
 
-        <div className="relative z-10 container mx-auto px-4 py-20 md:py-32">
+        <div className="relative z-10 container mx-auto px-4 py-28 md:py-44 min-h-[55vh] flex flex-col justify-center">
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -179,14 +188,7 @@ const Index = () => {
             Crafted with <span className="text-primary">passion</span>,<br />
             served with love.
           </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="mt-4 max-w-md text-base text-white/70"
-          >
-            Experience our handcrafted dishes made from the freshest ingredients, delivered straight to your doorstep.
-          </motion.p>
+
 
           {/* Search */}
           <motion.div
@@ -199,7 +201,11 @@ const Index = () => {
             <input
               type="text"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                // Clear category filter when user starts searching
+                if (e.target.value) setCategory("");
+              }}
               placeholder={placeholder}
               className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
             />
@@ -217,28 +223,32 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Categories */}
-      <section className="container mx-auto px-4 pt-8 pb-4">
-        <h2 className="mb-5 text-lg font-bold text-foreground">What's on your mind?</h2>
-        {catLoading ? (
-          <div className="flex gap-6 overflow-hidden">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonCategory key={i} />
-            ))}
-          </div>
-        ) : (
-          <CategoryCarousel
-            categories={categories || []}
-            selected={category}
-            onSelect={setCategory}
-          />
-        )}
-      </section>
+      {/* Categories — hidden when user is searching */}
+      {!search && (
+        <section className="container mx-auto px-4 pt-8 pb-4">
+          <h2 className="mb-5 text-lg font-bold text-foreground">What's on your mind?</h2>
+          {catLoading ? (
+            <div className="flex gap-6 overflow-hidden">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <SkeletonCategory key={i} />
+              ))}
+            </div>
+          ) : (
+            <CategoryCarousel
+              categories={categories || []}
+              selected={category}
+              onSelect={setCategory}
+            />
+          )}
+        </section>
+      )}
 
-      {/* Divider */}
-      <div className="container mx-auto px-4">
-        <div className="border-t border-border" />
-      </div>
+      {/* Divider — hidden when searching */}
+      {!search && (
+        <div className="container mx-auto px-4">
+          <div className="border-t border-border" />
+        </div>
+      )}
 
       {/* Menu Grid */}
       <section className="container mx-auto px-4 pt-10 pb-8">

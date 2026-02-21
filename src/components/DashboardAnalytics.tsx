@@ -128,7 +128,7 @@ const DashboardAnalytics = () => {
                 <MetricCard
                     icon={DollarSign}
                     label="Total Revenue"
-                    value={`₹${analytics?.revenue?.toFixed(1) || 0}`}
+                    value={`₹${Number(analytics?.revenue || 0).toFixed(2)}`}
                     color="text-green-600"
                     bgColor="bg-green-100"
                 />

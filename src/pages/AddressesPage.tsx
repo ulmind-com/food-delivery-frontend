@@ -122,25 +122,11 @@ export default function AddressesPage() {
                         <Navigation className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                        <p className="font-bold text-primary">Use Current Location</p>
-                        <p className="text-sm text-muted-foreground">Using GPS to find your location</p>
+                        <p className="font-bold text-primary">Add New Address</p>
+                        <p className="text-sm text-muted-foreground">Pick your delivery location on the map</p>
                     </div>
                 </motion.button>
 
-                {/* Add New Address Button */}
-                <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => { setEditAddress(null); setShowForm(true); }}
-                    className="flex w-full items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left transition-all hover:border-primary/40 hover:shadow-md"
-                >
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-accent">
-                        <Plus className="h-6 w-6 text-foreground" />
-                    </div>
-                    <div>
-                        <p className="font-bold text-foreground">Add New Address</p>
-                        <p className="text-sm text-muted-foreground">Enter address manually</p>
-                    </div>
-                </motion.button>
 
                 {/* Saved Addresses */}
                 {isLoading ? (
@@ -255,25 +241,31 @@ export default function AddressesPage() {
             <LocationPickerModal
                 isOpen={showMapPicker}
                 onClose={() => setShowMapPicker(false)}
-                onConfirm={async (address) => {
-                    // Modal already handles backend persistence/selection.
-                    // We just update local state/cache and navigate.
-
-                    setSelectedAddress(address);
-                    // Invalidate to fetch fresh list with real IDs if needed
-                    await queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
-
-                    if (fromCheckout) {
-                        navigate("/checkout");
-                    } else {
-                        navigate(-1);
-                    }
+                saveAddress={false}
+                onConfirm={(address) => {
+                    // Format the map response so the manual form can cleanly use it
+                    setEditAddress({
+                        addressLine1: "", // Leave blank for the user to type House No/Flat No
+                        addressLine2: address.addressLine1 || "", // The map's primary string
+                        city: address.city || "",
+                        state: address.state || "",
+                        postalCode: address.postalCode || "",
+                        coordinates: address.coordinates,
+                    });
+                    setShowMapPicker(false);
+                    setShowForm(true);
                 }}
             />
             <AddressFormModal
                 isOpen={showForm}
                 onClose={() => { setShowForm(false); setEditAddress(null); }}
-                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["user-addresses"] })}
+                onSuccess={async () => {
+                    await queryClient.invalidateQueries({ queryKey: ["user-addresses"] });
+                    // If we came from checkout and it's a new address flow, auto-return
+                    if (fromCheckout && !editAddress?._id) {
+                        navigate("/checkout");
+                    }
+                }}
                 editAddress={editAddress}
             />
         </div>

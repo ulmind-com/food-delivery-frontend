@@ -9,7 +9,7 @@ import { useLocation } from "react-router-dom";
  * Appears when cart has items. Hidden on checkout & admin pages.
  */
 const CartBar = () => {
-    const { items, totalPrice, finalPrice, toggleCart, isOpen } = useCartStore();
+    const { items, totalPrice, finalPrice, deliveryFee, toggleCart, isOpen } = useCartStore();
     const { isAuthenticated } = useAuthStore();
     const location = useLocation();
 
@@ -52,7 +52,7 @@ const CartBar = () => {
                                         {totalItems} {totalItems === 1 ? "item" : "items"}
                                     </p>
                                     <p className="text-base font-black text-primary-foreground leading-tight">
-                                        ₹{finalPrice.toFixed(0)}
+                                        ₹{(finalPrice - deliveryFee).toFixed(0)}
                                     </p>
                                 </div>
                             </div>

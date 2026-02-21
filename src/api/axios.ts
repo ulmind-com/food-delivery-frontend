@@ -52,7 +52,7 @@ export const userApi = {
   getProfile: () => api.get("/users/profile"),
   updateProfile: (data: { name?: string; mobile?: string; address?: string; profileImage?: string }) => api.put("/users/profile", data),
   getAll: () => api.get("/users"),
-  updateUser: (id: string, data: { role?: string; isActive?: boolean }) => api.put(`/users/${id}`, data),
+  updateUser: (id: string, data: { role?: string; isActive?: boolean; isCodDisabled?: boolean }) => api.put(`/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/users/${id}`),
   getAddresses: () => api.get("/users/addresses"),
   addAddress: (data: any) => api.post("/users/addresses", data),
@@ -67,7 +67,7 @@ export const userApi = {
 // ─── Restaurant ─────────────────────────────
 export const restaurantApi = {
   get: () => api.get("/restaurant"),
-  update: (data: { isOpen?: boolean; name?: string; address?: string; deliveryRadius?: number; mobile?: string; logo?: string; gstIn?: string; fssaiLicense?: string }) =>
+  update: (data: { isOpen?: boolean; openingTime?: string; closingTime?: string; isCodEnabled?: boolean; codStartTime?: string; codEndTime?: string; name?: string; address?: string; deliveryRadius?: number; freeDeliveryRadius?: number; chargePerKm?: number; mobile?: string; logo?: string; gstIn?: string; fssaiLicense?: string }) =>
     api.put("/restaurant", data),
   setLocation: (data: { lat: number; lng: number; address?: string }) =>
     api.put("/restaurant/location", data),
@@ -99,7 +99,7 @@ export const categoryApi = {
 // ─── Cart (Server-Side) ─────────────────────
 export const cartApi = {
   get: () => api.get("/cart"),
-  getBill: () => api.get("/cart/bill"),
+  getBill: (lat?: number, lng?: number) => api.get("/cart/bill" + (lat && lng ? `?lat=${lat}&lng=${lng}` : '')),
   add: (data: { productId: string; quantity: number }) => api.post("/cart", data),
   updateQty: (itemId: string, data: { quantity: number }) => api.put(`/cart/${itemId}`, data),
   removeItem: (itemId: string) => api.delete(`/cart/${itemId}`),
@@ -119,6 +119,7 @@ export const orderApi = {
     address?: string;
     deliveryInstruction?: string;
     deliveryCoordinates?: { lat: number; lng: number };
+    deliveryFee?: number;
     paymentMethod: "COD" | "ONLINE";
     discountApplied?: number;
     finalAmount?: number;

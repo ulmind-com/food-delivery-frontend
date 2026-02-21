@@ -212,7 +212,10 @@ const RestaurantSettings = () => {
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  const [form, setForm] = useState({ name: "", address: "", deliveryRadius: "", gstIn: "", fssaiLicense: "", mobile: "" });
+  const [form, setForm] = useState({
+    name: "", address: "", deliveryRadius: "", freeDeliveryRadius: "", chargePerKm: "", gstIn: "", fssaiLicense: "", mobile: "",
+    openingTime: "10:00", closingTime: "22:00", isCodEnabled: true, codStartTime: "00:00", codEndTime: "00:00"
+  });
   const [dialCode, setDialCode] = useState("+91");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -228,9 +231,16 @@ const RestaurantSettings = () => {
         name: restaurant.name || "",
         address: restaurant.address || "",
         deliveryRadius: String(restaurant.deliveryRadius || ""),
+        freeDeliveryRadius: String(restaurant.freeDeliveryRadius ?? 2),
+        chargePerKm: String(restaurant.chargePerKm ?? 10),
         gstIn: restaurant.gstIn || "",
         fssaiLicense: restaurant.fssaiLicense || "",
         mobile: storedMobile,
+        openingTime: restaurant.openingTime || "10:00",
+        closingTime: restaurant.closingTime || "22:00",
+        isCodEnabled: restaurant.isCodEnabled ?? true,
+        codStartTime: restaurant.codStartTime || "00:00",
+        codEndTime: restaurant.codEndTime || "00:00"
       });
       if (restaurant.logo) setLogoPreview(restaurant.logo);
     }
@@ -284,10 +294,17 @@ const RestaurantSettings = () => {
         name: form.name,
         address: form.address,
         deliveryRadius: Number(form.deliveryRadius) || undefined,
+        freeDeliveryRadius: Number(form.freeDeliveryRadius),
+        chargePerKm: Number(form.chargePerKm),
         gstIn: form.gstIn,
         fssaiLicense: form.fssaiLicense,
         mobile: form.mobile || undefined,
         logo: logoURL,
+        openingTime: form.openingTime,
+        closingTime: form.closingTime,
+        isCodEnabled: form.isCodEnabled,
+        codStartTime: form.codStartTime,
+        codEndTime: form.codEndTime
       });
       setRestaurant(res.data);
       queryClient.invalidateQueries({ queryKey: ["restaurant"] });
@@ -458,18 +475,106 @@ const RestaurantSettings = () => {
               />
             </div>
 
-            <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Delivery Radius (km)
-              </Label>
-              <Input
-                type="number"
-                value={form.deliveryRadius}
-                onChange={(e) => setForm({ ...form, deliveryRadius: e.target.value })}
-                placeholder="10"
-                className="mt-1.5"
-                min={1}
+            <div className="flex items-center justify-between rounded-xl border border-border p-4 bg-muted/30">
+              <div>
+                <Label className="text-sm font-bold uppercase tracking-wider text-foreground">
+                  Enable Cash on Delivery
+                </Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Allow users to place orders using COD globally.</p>
+              </div>
+              <Switch
+                checked={form.isCodEnabled}
+                onCheckedChange={(checked) => setForm({ ...form, isCodEnabled: checked })}
               />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-4">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Opening Time
+                </Label>
+                <Input
+                  type="time"
+                  value={form.openingTime}
+                  onChange={(e) => setForm({ ...form, openingTime: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Closing Time
+                </Label>
+                <Input
+                  type="time"
+                  value={form.closingTime}
+                  onChange={(e) => setForm({ ...form, closingTime: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  COD Offline From
+                </Label>
+                <Input
+                  type="time"
+                  value={form.codStartTime}
+                  onChange={(e) => setForm({ ...form, codStartTime: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  COD Offline To
+                </Label>
+                <Input
+                  type="time"
+                  value={form.codEndTime}
+                  onChange={(e) => setForm({ ...form, codEndTime: e.target.value })}
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Max Radius (km)
+                </Label>
+                <Input
+                  type="number"
+                  value={form.deliveryRadius}
+                  onChange={(e) => setForm({ ...form, deliveryRadius: e.target.value })}
+                  placeholder="10"
+                  className="mt-1.5"
+                  min={1}
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Free Radius (km)
+                </Label>
+                <Input
+                  type="number"
+                  value={form.freeDeliveryRadius}
+                  onChange={(e) => setForm({ ...form, freeDeliveryRadius: e.target.value })}
+                  placeholder="2"
+                  className="mt-1.5"
+                  min={0}
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Charge / Extra Km (₹)
+                </Label>
+                <Input
+                  type="number"
+                  value={form.chargePerKm}
+                  onChange={(e) => setForm({ ...form, chargePerKm: e.target.value })}
+                  placeholder="10"
+                  className="mt-1.5"
+                  min={0}
+                />
+              </div>
             </div>
 
             <div>

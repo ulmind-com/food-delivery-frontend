@@ -1,6 +1,7 @@
 import { UtensilsCrossed, MapPin, Heart } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useRestaurantStore } from "@/store/useRestaurantStore";
+import { resolveImageURL } from "@/lib/image-utils";
 
 const Footer = () => {
     const restaurant = useRestaurantStore((s) => s.restaurant);
@@ -20,9 +21,17 @@ const Footer = () => {
                     {/* Brand */}
                     <div className="flex flex-col gap-3 max-w-xs">
                         <div className="flex items-center gap-2.5">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md">
-                                <UtensilsCrossed className="h-5 w-5 text-primary-foreground" />
-                            </div>
+                            {restaurant?.logo ? (
+                                <img
+                                    src={resolveImageURL(restaurant.logo)}
+                                    alt={restaurant.name || "Restaurant Logo"}
+                                    className="h-9 w-9 flex-shrink-0 rounded-xl object-cover shadow-md"
+                                />
+                            ) : (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md">
+                                    <UtensilsCrossed className="h-5 w-5 text-primary-foreground" />
+                                </div>
+                            )}
                             <span
                                 className="text-xl font-extrabold tracking-tight text-foreground"
                                 style={{ fontFamily: "'Playfair Display', serif" }}

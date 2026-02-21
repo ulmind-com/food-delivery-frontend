@@ -458,7 +458,7 @@ const DashboardView = ({ stats, isLoading }: { stats: DashboardStats; isLoading:
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex flex-col items-end">
-                            <span className="font-bold text-foreground text-base">₹{order.finalAmount}</span>
+                            <span className="font-bold text-foreground text-base">₹{Number(order.finalAmount || 0).toFixed(2)}</span>
                             {order.discountApplied > 0 && (
                               <span className="text-xs text-green-600 line-through decoration-muted-foreground/50">
                                 -₹{order.discountApplied}

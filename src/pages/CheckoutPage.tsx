@@ -10,6 +10,7 @@ import AddressManager from "@/components/AddressManager";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { CreditCard, Banknote, ArrowLeft, Loader2, MapPin, Home, Briefcase, Minus, Plus, FileText, UtensilsCrossed } from "lucide-react";
+import TicketCoupon from "@/components/TicketCoupon";
 
 type PaymentMethod = "ONLINE" | "COD";
 
@@ -35,47 +36,39 @@ const CheckoutPage = () => {
 
   const isRestaurantClosed = restaurant && !restaurant.isOpen;
 
-  // Refresh cart on mount to ensure we have latest item details (categories)
-  useEffect(() => {
-    fetchCart();
-  }, [fetchCart]);
+  let isCodDisabled = false;
+  let codDisableReason = "";
 
-  // Scroll to top on mount
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
-  }, []);
+  if (user?.isCodDisabled) {
+    isCodDisabled = true;
+    codDisableReason = "Disabled for your account";
+  } else if (restaurant && restaurant.isCodEnabled === false) {
+    isCodDisabled = true;
+    codDisableReason = "Currently disabled by restaurant";
+  } else if (restaurant?.codStartTime && restaurant?.codEndTime) {
+    const now = new Date();
+    const istTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const currentHhMm = String(istTime.getHours()).padStart(2, '0') + ':' + String(istTime.getMinutes()).padStart(2, '0');
 
-  // Fetch Recommended Products
-  useEffect(() => {
-    if (items.length > 0) {
-      const fetchRecommendations = async () => {
-        try {
-          const res = await cartApi.getRecommendations();
-          setRecommendedProducts(res.data);
-          // Reset scroll
-          setTimeout(() => {
-            const scrollContainer = document.getElementById('rec-scroll');
-            if (scrollContainer) {
-              scrollContainer.scrollLeft = 0;
-            }
-          }, 100);
-        } catch (error) {
-          console.error("Failed to fetch recommendations", error);
-        }
-      };
+    const start = restaurant.codStartTime;
+    const end = restaurant.codEndTime;
 
-      fetchRecommendations();
+    if (start < end) {
+      if (currentHhMm >= start && currentHhMm <= end) {
+        isCodDisabled = true;
+        codDisableReason = `Not available between ${start} and ${end}`;
+      }
+    } else if (start > end) {
+      if (currentHhMm >= start || currentHhMm <= end) {
+        isCodDisabled = true;
+        codDisableReason = `Not available between ${start} and ${end}`;
+      }
     }
-  }, [items]);
+  }
 
-
-  // Sync restaurant status
+  // Initialize Cart & Sync Address ON MOUNT ONLY
   useEffect(() => {
-    restaurantApi.get().then((res) => setRestaurant(res.data)).catch(() => setLoading(false));
-  }, [setRestaurant, setLoading]);
-
-  // Sync address
-  useEffect(() => {
+    // 1. If we have a stored preference, load it!
     if (storedAddress && !selectedAddressId) {
       const full = [
         storedAddress.addressLine1,
@@ -84,11 +77,37 @@ const CheckoutPage = () => {
         storedAddress.state,
         storedAddress.postalCode,
       ].filter(Boolean).join(", ");
+
       setSelectedAddressId(storedAddress._id);
       setSelectedAddressObj(storedAddress);
       setSelectedAddressText(full);
+
+      // Fetch cart precisely WITH coordinates to calculate delivery fee instantly
+      if (storedAddress.coordinates?.lat && storedAddress.coordinates?.lng) {
+        fetchCart({ lat: storedAddress.coordinates.lat, lng: storedAddress.coordinates.lng });
+      } else {
+        fetchCart();
+      }
     }
-  }, [storedAddress, selectedAddressId]);
+    // 2. If NO stored preference, just fetch basic cart (Delivery fee will be 0 until picked)
+    else if (!storedAddress && !selectedAddressId) {
+      fetchCart();
+    }
+  }, []); // Run ONLY once on mount to prevent fetchCart Race Conditions
+
+  // Fetch Recommended Products
+  useEffect(() => {
+    cartApi.getRecommendations()
+      .then(res => setRecommendedProducts(res.data))
+      .catch(err => console.error("Failed to fetch recommendations:", err));
+  }, []);
+
+  // Effect to switch back to ONLINE if COD gets disabled while selected
+  useEffect(() => {
+    if (isCodDisabled && paymentMethod === "COD") {
+      setPaymentMethod("ONLINE");
+    }
+  }, [isCodDisabled, paymentMethod]);
 
   const isLoading = placingOrder || paymentLoading || isCartLoading;
   const deliveryTime = 30; // Mock delivery time
@@ -116,6 +135,7 @@ const CheckoutPage = () => {
           address: selectedAddressText || user?.address || "",
           deliveryInstruction: `${deliveryInstruction}${noCutlery ? " | Don't send cutlery 🍴❌" : ""}`, // Combine instructions
           deliveryCoordinates: selectedAddressObj?.coordinates || undefined,
+          deliveryFee,
           paymentMethod: "COD",
         });
         toast.success("Order placed successfully! 🎉");
@@ -146,6 +166,7 @@ const CheckoutPage = () => {
               address: selectedAddressText || user?.address || "",
               deliveryInstruction: `${deliveryInstruction}${noCutlery ? " | Don't send cutlery 🍴❌" : ""}`, // Combine instructions
               deliveryCoordinates: selectedAddressObj?.coordinates || undefined,
+              deliveryFee,
               paymentMethod: "ONLINE",
               razorpayOrderId: paymentDetails.razorpay_order_id,
               razorpayPaymentId: paymentDetails.razorpay_payment_id,
@@ -209,6 +230,8 @@ const CheckoutPage = () => {
 
   const AddressIcon = selectedAddressObj?.type === "WORK" ? Briefcase : selectedAddressObj?.type === "HOME" ? Home : MapPin;
 
+  const filteredRecommendations = recommendedProducts.filter(p => !items.find(i => i._id === p._id));
+
   return (
     <div className="min-h-screen bg-gray-50/50 pb-48 dark:bg-background">
       {/* Header */}
@@ -257,6 +280,11 @@ const CheckoutPage = () => {
                   setSelectedAddressText(text);
                   setSelectedAddressObj(obj);
                   setIsSelectingAddress(false);
+
+                  // Re-fetch cart immediately with new coordinates
+                  if (obj?.coordinates?.lat && obj?.coordinates?.lng) {
+                    fetchCart({ lat: obj.coordinates.lat, lng: obj.coordinates.lng });
+                  }
                 }}
               />
             </div>
@@ -361,7 +389,7 @@ const CheckoutPage = () => {
             </section>
 
             {/* Recommended Products */}
-            {recommendedProducts.length > 0 && (
+            {filteredRecommendations.length > 0 && (
               <section className="mb-2 space-y-2">
                 <h3 className="font-bold text-sm text-foreground px-1">May you like this</h3>
 
@@ -370,7 +398,7 @@ const CheckoutPage = () => {
                   className="flex gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
                   style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                 >
-                  {recommendedProducts.map((product, index) => (
+                  {filteredRecommendations.map((product, index) => (
                     <div
                       key={product._id}
                       className="snap-start flex-shrink-0 w-36 flex flex-col bg-card rounded-lg shadow-sm border border-border/40 overflow-hidden hover:shadow-md transition-shadow group"
@@ -414,6 +442,11 @@ const CheckoutPage = () => {
                 </div>
               </section>
             )}
+
+            {/* Apply Coupon */}
+            <section className="mb-2">
+              <TicketCoupon />
+            </section>
 
             {/* Bill Summary */}
             <section className="rounded-2xl bg-card p-4 shadow-sm border border-border/50">
@@ -474,30 +507,40 @@ const CheckoutPage = () => {
             {/* Payment & Order Button (Fixed Bottom) */}
             <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
               <div className="mx-auto max-w-lg space-y-3">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPaymentMethod("ONLINE")}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 transition-all ${paymentMethod === "ONLINE"
-                      ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
-                      : "border-border hover:bg-accent"
-                      }`}
-                  >
-                    <img src="/razorpay.svg" alt="Razorpay" className="h-3.5 w-auto object-contain" />
-                    <span className="text-xs font-bold">Pay Online</span>
-                    {paymentMethod === "ONLINE" && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-                  </button>
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 flex flex-col">
+                    <button
+                      onClick={() => setPaymentMethod("ONLINE")}
+                      className={`w-full flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 transition-all ${paymentMethod === "ONLINE"
+                        ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
+                        : "border-border hover:bg-accent"
+                        }`}
+                    >
+                      <img src="/razorpay.svg" alt="Razorpay" className="h-3.5 w-auto object-contain" />
+                      <span className="text-xs font-bold">Pay Online</span>
+                      {paymentMethod === "ONLINE" && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                    </button>
+                  </div>
 
-                  <button
-                    onClick={() => setPaymentMethod("COD")}
-                    className={`flex-1 flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 transition-all ${paymentMethod === "COD"
-                      ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
-                      : "border-border hover:bg-accent"
-                      }`}
-                  >
-                    <Banknote className={`h-4 w-4 ${paymentMethod === "COD" ? "text-primary" : "text-muted-foreground"}`} />
-                    <span className="text-xs font-bold">Cash</span>
-                    {paymentMethod === "COD" && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
-                  </button>
+                  <div className="flex-1 flex flex-col gap-1">
+                    <button
+                      disabled={isCodDisabled}
+                      onClick={() => !isCodDisabled && setPaymentMethod("COD")}
+                      className={`w-full flex items-center justify-center gap-2 rounded-xl border px-2 py-2.5 transition-all ${isCodDisabled ? "opacity-50 cursor-not-allowed bg-muted/50 border-border" : paymentMethod === "COD"
+                        ? "border-primary bg-primary/5 text-primary ring-1 ring-primary"
+                        : "border-border hover:bg-accent"
+                        }`}
+                    >
+                      <Banknote className={`h-4 w-4 ${paymentMethod === "COD" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-xs font-bold">Cash</span>
+                      {paymentMethod === "COD" && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                    </button>
+                    {isCodDisabled && (
+                      <span className="text-[10px] font-bold text-destructive text-center leading-[1.1] px-1">
+                        {codDisableReason}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {isRestaurantClosed ? (
@@ -511,7 +554,10 @@ const CheckoutPage = () => {
                     className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-primary to-orange-600 p-4 text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-xl hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100 transition-all active:scale-[0.98]"
                   >
                     {isLoading ? (
-                      <div className="flex w-full justify-center"><Loader2 className="animate-spin" /></div>
+                      <div className="flex w-full items-center justify-center gap-2 py-1">
+                        <Loader2 className="animate-spin h-5 w-5" />
+                        <span className="font-bold text-sm">Calculating...</span>
+                      </div>
                     ) : (
                       <>
                         <div className="text-left">

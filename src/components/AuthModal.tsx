@@ -42,7 +42,6 @@ const AuthModal = () => {
           email: form.email,
           password: form.password,
           mobile: cleanMobile,
-          address: {},
         });
         toast.success("Account created! Please sign in.");
         openAuthModal("login");

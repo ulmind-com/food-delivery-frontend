@@ -256,7 +256,7 @@ const AdminOrders = () => {
                           </Tooltip>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-bold text-foreground">₹{order.finalAmount || order.totalAmount || 0}</p>
+                          <p className="font-bold text-foreground">₹{Number(order.finalAmount || order.totalAmount || 0).toFixed(2)}</p>
                           <div className="mt-0.5 flex items-center gap-1.5">
                             <span className="text-[10px] text-muted-foreground">{order.paymentMethod || "—"}</span>
                             {order.paymentStatus && (
@@ -369,6 +369,13 @@ const AdminOrders = () => {
                     {(selectedOrder.customer?.email || selectedOrder.user?.email) && <p className="text-muted-foreground">{selectedOrder.customer?.email || selectedOrder.user?.email}</p>}
                     {(selectedOrder.customer?.mobile || selectedOrder.deliveryAddress?.mobile) && (
                       <p className="text-muted-foreground">📞 {selectedOrder.customer?.mobile || selectedOrder.deliveryAddress?.mobile}</p>
+                    )}
+
+                    {/* Display Total Order Count */}
+                    {selectedOrder.customerOrderCount !== undefined && (
+                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-blue-100/50 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                        <span>🏆 Placed {selectedOrder.customerOrderCount} {selectedOrder.customerOrderCount === 1 ? 'order' : 'orders'} in total</span>
+                      </div>
                     )}
                   </div>
 
@@ -511,8 +518,8 @@ const AdminOrders = () => {
                               {item.variant && <span className="ml-1 text-xs text-muted-foreground">({item.variant})</span>}
                             </td>
                             <td className="px-4 py-2.5 text-center">{item.quantity}</td>
-                            <td className="px-4 py-2.5 text-right">₹{item.price || 0}</td>
-                            <td className="px-4 py-2.5 text-right font-semibold">₹{(item.price || 0) * item.quantity}</td>
+                            <td className="px-4 py-2.5 text-right">₹{Number(item.price || 0).toFixed(2)}</td>
+                            <td className="px-4 py-2.5 text-right font-semibold">₹{Number((item.price || 0) * item.quantity).toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -522,18 +529,18 @@ const AdminOrders = () => {
 
                 {/* Bill Summary */}
                 <div className="rounded-xl bg-muted/50 p-4 space-y-1.5">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₹{selectedOrder.totalAmount || 0}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₹{Number(selectedOrder.totalAmount || 0).toFixed(2)}</span></div>
                   {selectedOrder.discountApplied > 0 && (
-                    <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{selectedOrder.discountApplied}</span></div>
+                    <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{Number(selectedOrder.discountApplied).toFixed(2)}</span></div>
                   )}
-                  {selectedOrder.deliveryCharge > 0 && (
-                    <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span>₹{selectedOrder.deliveryCharge}</span></div>
+                  {selectedOrder.deliveryFee > 0 && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">Delivery Fee</span><span>₹{selectedOrder.deliveryFee}</span></div>
                   )}
                   {(selectedOrder.taxAmount > 0 || selectedOrder.cgstTotal > 0 || selectedOrder.sgstTotal > 0 || selectedOrder.igstTotal > 0) && (
                     <div className="flex flex-col gap-1 text-muted-foreground border-t border-border/50 pt-2 mt-2">
                       <div className="flex justify-between">
                         <span>Tax</span>
-                        <span>₹{selectedOrder.taxAmount || ((selectedOrder.cgstTotal || 0) + (selectedOrder.sgstTotal || 0) + (selectedOrder.igstTotal || 0))}</span>
+                        <span>₹{Number(selectedOrder.taxAmount || ((selectedOrder.cgstTotal || 0) + (selectedOrder.sgstTotal || 0) + (selectedOrder.igstTotal || 0))).toFixed(2)}</span>
                       </div>
                       {(selectedOrder.cgstTotal > 0 || selectedOrder.sgstTotal > 0) && (
                         <div className="ml-2 flex flex-col gap-0.5 text-xs text-muted-foreground/80 border-l-2 border-border pl-2">
@@ -560,7 +567,7 @@ const AdminOrders = () => {
                     </div>
                   )}
                   <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
-                    <span>Total</span><span>₹{selectedOrder.finalAmount || selectedOrder.totalAmount || 0}</span>
+                    <span>Total</span><span>₹{Number(selectedOrder.finalAmount || selectedOrder.totalAmount || 0).toFixed(2)}</span>
                   </div>
                 </div>
 

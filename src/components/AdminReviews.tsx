@@ -116,7 +116,7 @@ const AdminReviews = () => {
                                                 </span>
                                                 {review.order && typeof review.order === "object" && (
                                                     <span className="text-xs text-muted-foreground">
-                                                        ₹{review.order.finalAmount}
+                                                        ₹{Number(review.order.finalAmount || 0).toFixed(2)}
                                                     </span>
                                                 )}
                                             </div>

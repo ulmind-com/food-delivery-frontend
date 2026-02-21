@@ -167,7 +167,7 @@ const MyOrders = () => {
                         <div className="w-8" /> // Spacer or just remove entirely if layout permits
                       )}
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-foreground">₹{order.finalAmount || order.totalAmount || 0}</span>
+                        <span className="text-sm font-bold text-foreground">₹{Number(order.finalAmount || order.totalAmount || 0).toFixed(2)}</span>
                         <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
@@ -248,7 +248,7 @@ const OrderDetail = ({ order, onCancel, cancelling }: { order: any; onCancel: (i
           {(order.items || []).map((item: any, idx: number) => (
             <div key={idx} className="flex justify-between text-sm">
               <span className="text-foreground">{item.name || item.product?.name || item.menuItem?.name || "Item"} × {item.quantity}</span>
-              <span className="font-semibold">₹{(item.price || 0) * item.quantity}</span>
+              <span className="font-semibold">₹{Number((item.price || 0) * item.quantity).toFixed(2)}</span>
             </div>
           ))}
         </div>
@@ -256,12 +256,12 @@ const OrderDetail = ({ order, onCancel, cancelling }: { order: any; onCancel: (i
 
       {/* Bill */}
       <div className="space-y-1 rounded-xl bg-muted/50 p-4 text-sm">
-        <div className="flex justify-between"><span>Subtotal</span><span>₹{order.totalAmount || 0}</span></div>
+        <div className="flex justify-between"><span>Subtotal</span><span>₹{Number(order.totalAmount || 0).toFixed(2)}</span></div>
         {order.discountApplied > 0 && (
           <div className="flex justify-between text-green-600"><span>Discount</span><span>-₹{order.discountApplied}</span></div>
         )}
         <div className="flex justify-between border-t border-border pt-1 font-bold">
-          <span>Total Paid</span><span>₹{order.finalAmount || order.totalAmount || 0}</span>
+          <span>Total Paid</span><span>₹{Number(order.finalAmount || order.totalAmount || 0).toFixed(2)}</span>
         </div>
       </div>
 

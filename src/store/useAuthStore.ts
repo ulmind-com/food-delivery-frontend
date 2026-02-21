@@ -6,6 +6,7 @@ interface User {
   name: string;
   email: string;
   role: "user" | "admin" | "Customer" | "Admin";
+  isCodDisabled?: boolean;
   mobile?: string;
   address?: string;
   profileImage?: string;

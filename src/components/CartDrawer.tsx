@@ -147,37 +147,7 @@ const CartDrawer = () => {
                 </div>
               ) : (
                 <div className="space-y-0">
-                  {/* Free Delivery Bar */}
-                  <div className="border-b border-border px-5 py-3">
-                    {freeDeliveryUnlocked ? (
-                      <motion.div
-                        initial={{ scale: 0.95, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="flex items-center gap-2 rounded-xl bg-green-500/10 px-4 py-2.5"
-                      >
-                        <PartyPopper className="h-5 w-5 text-green-600" />
-                        <span className="text-sm font-bold text-green-600">🎉 You've unlocked FREE Delivery!</span>
-                      </motion.div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                          <Truck className="h-4 w-4 text-primary" />
-                          <span>
-                            Add <span className="font-bold text-primary">₹{remaining.toFixed(0)}</span> more for{" "}
-                            <span className="font-bold text-green-600">FREE Delivery!</span>
-                          </span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                          <motion.div
-                            className="h-full rounded-full bg-gradient-to-r from-primary to-green-500"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${freeDeliveryProgress}%` }}
-                            transition={{ duration: 0.5, ease: "easeOut" }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {/* Delivery calculated at checkout instead */}
 
                   {/* Items */}
                   <div className="space-y-2 px-5 py-4">
@@ -243,14 +213,7 @@ const CartDrawer = () => {
                     </div>
                     <div className="flex justify-between text-muted-foreground">
                       <span>Delivery Fee</span>
-                      {freeDeliveryUnlocked ? (
-                        <span className="flex items-center gap-1.5">
-                          <span className="text-muted-foreground/60 line-through">₹40</span>
-                          <span className="font-semibold text-green-600">FREE</span>
-                        </span>
-                      ) : (
-                        <span>₹{deliveryFee.toFixed(2)}</span>
-                      )}
+                      <span className="text-xs italic text-muted-foreground/70">Calculated at Checkout</span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">
                       <span>GST & Taxes</span>
@@ -265,7 +228,7 @@ const CartDrawer = () => {
                     <div className="border-t border-border pt-2">
                       <div className="flex justify-between text-base font-extrabold text-foreground">
                         <span>To Pay</span>
-                        <span>₹{finalPrice.toFixed(2)}</span>
+                        <span>₹{(finalPrice - deliveryFee).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -287,7 +250,7 @@ const CartDrawer = () => {
                   disabled={!!isRestaurantClosed}
                   className="w-full rounded-2xl bg-primary py-4 text-base font-extrabold text-primary-foreground shadow-lg transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isRestaurantClosed ? "RESTAURANT CLOSED" : `CHECKOUT — ₹${finalPrice.toFixed(2)}`}
+                  {isRestaurantClosed ? "RESTAURANT CLOSED" : `CHECKOUT — ₹${(finalPrice - deliveryFee).toFixed(2)}`}
                 </motion.button>
               </div>
             )}

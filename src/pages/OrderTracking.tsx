@@ -306,24 +306,6 @@ const RouteMap = ({ userLat, userLng, restaurantLat, restaurantLng, orderStatus 
                 style={{ height: 320 }}
             />
 
-            {/* Distance + ETA badge (bottom-left) */}
-            {(distance || eta) && (
-                <div className="absolute bottom-3 left-3 z-[1000] flex items-center gap-2 rounded-xl bg-card/95 backdrop-blur-sm px-3 py-2 shadow-lg border border-border">
-                    {distance && (
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                            <Navigation className="h-3.5 w-3.5 text-primary" />
-                            {distance}
-                        </div>
-                    )}
-                    {distance && eta && <div className="h-3 w-px bg-border" />}
-                    {eta && (
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-                            <Clock className="h-3.5 w-3.5 text-orange-500" />
-                            {eta}
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* Legend (top-right) */}
             <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1.5 rounded-xl bg-card/95 backdrop-blur-sm px-3 py-2 shadow-lg border border-border">
@@ -867,7 +849,7 @@ const OrderTracking = () => {
                                 <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                             </div>
                             <p className="text-sm font-bold text-foreground flex-shrink-0">
-                                ₹{(item.price || 0) * item.quantity}
+                                ₹{Number((item.price || 0) * item.quantity).toFixed(2)}
                             </p>
                         </div>
                     ))}
@@ -877,7 +859,7 @@ const OrderTracking = () => {
                 <div className="mt-4 space-y-1.5 rounded-xl bg-muted/50 p-4 text-sm">
                     <div className="flex justify-between text-muted-foreground">
                         <span>Subtotal</span>
-                        <span>₹{order.totalAmount || 0}</span>
+                        <span>₹{Number(order.totalAmount || 0).toFixed(2)}</span>
                     </div>
                     {order.deliveryFee > 0 && (
                         <div className="flex justify-between text-muted-foreground">
@@ -923,7 +905,7 @@ const OrderTracking = () => {
                     )}
                     <div className="flex justify-between border-t border-border pt-2 text-base font-extrabold text-foreground">
                         <span>Total Paid</span>
-                        <span>₹{order.finalAmount || order.totalAmount || 0}</span>
+                        <span>₹{Number(order.finalAmount || order.totalAmount || 0).toFixed(2)}</span>
                     </div>
                 </div>
             </motion.div>

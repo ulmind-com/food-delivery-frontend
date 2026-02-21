@@ -45,8 +45,9 @@ interface CartState {
     igstTotal: number;
   };
   appliedCoupon: AppliedCoupon | null;
+  deliveryLocation: { lat: number; lng: number } | null;
 
-  fetchCart: () => Promise<void>;
+  fetchCart: (location?: { lat: number; lng: number }) => Promise<void>;
   addItem: (product: { _id: string; name: string; price: number; image: string; variant?: string; type?: "Veg" | "Non-Veg"; category?: string }) => Promise<void>;
   incrementItem: (itemId: string) => Promise<void>;
   decrementItem: (itemId: string) => Promise<void>;
@@ -67,6 +68,7 @@ const emptyCart: Omit<CartState, "isOpen" | "isLoading" | "fetchCart" | "addItem
   tax: 0,
   taxBreakdown: { cgstTotal: 0, sgstTotal: 0, igstTotal: 0 },
   appliedCoupon: null,
+  deliveryLocation: null,
 };
 
 /** Compute total from local items (used for optimistic price updates) */
@@ -98,8 +100,13 @@ export const useCartStore = create<CartState>()((set, get) => ({
   isOpen: false,
   isLoading: false,
 
-  fetchCart: async () => {
-    set({ isLoading: true });
+  fetchCart: async (location?: { lat: number; lng: number }) => {
+    // If a new location is provided, save it. Otherwise, use what we have in state.
+    console.log("[useCartStore] fetchCart called with location:", location);
+    const activeLocation = location || get().deliveryLocation;
+    console.log("[useCartStore] activeLocation resolved to:", activeLocation);
+
+    set({ isLoading: true, ...(location ? { deliveryLocation: location } : {}) });
     try {
       const res = await cartApi.get();
       const data = res.data;
@@ -144,9 +151,12 @@ export const useCartStore = create<CartState>()((set, get) => ({
       // Fetch bill details from dedicated bill API
       let bill: any = { itemsTotal: 0, shipping: 0, discount: 0, finalTotal: 0, appliedCoupon: null };
       try {
-        const billRes = await cartApi.getBill();
+        console.log(`[useCartStore] Calling cartApi.getBill(${activeLocation?.lat}, ${activeLocation?.lng})`);
+        const billRes = await cartApi.getBill(activeLocation?.lat, activeLocation?.lng);
         bill = billRes.data;
-      } catch {
+        console.log("[useCartStore] getBill returned:", bill);
+      } catch (err) {
+        console.error("[useCartStore] getBill failed:", err);
         // Fallback to cart data if bill endpoint fails
       }
 

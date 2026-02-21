@@ -37,7 +37,7 @@ const AdminUsers = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { role?: string; isActive?: boolean } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { role?: string; isActive?: boolean; isCodDisabled?: boolean } }) =>
       userApi.updateUser(id, data),
     onMutate: async ({ id, data }) => {
       await queryClient.cancelQueries({ queryKey: ["admin-users"] });
@@ -176,16 +176,29 @@ const AdminUsers = () => {
                             </Select>
                           </td>
                           <td className="px-5 py-4">
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={user.isActive !== false}
-                                onCheckedChange={(checked) =>
-                                  updateMutation.mutate({ id: user._id, data: { isActive: checked } })
-                                }
-                              />
-                              <span className={`text-xs font-bold ${user.isActive !== false ? "text-swiggy-success" : "text-destructive"}`}>
-                                {user.isActive !== false ? "Active" : "Inactive"}
-                              </span>
+                            <div className="flex flex-col gap-3">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={user.isActive !== false}
+                                  onCheckedChange={(checked) =>
+                                    updateMutation.mutate({ id: user._id, data: { isActive: checked } })
+                                  }
+                                />
+                                <span className={`text-xs font-bold ${user.isActive !== false ? "text-swiggy-success" : "text-destructive"}`}>
+                                  {user.isActive !== false ? "Active" : "Inactive"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={!user.isCodDisabled}
+                                  onCheckedChange={(checked) =>
+                                    updateMutation.mutate({ id: user._id, data: { isCodDisabled: !checked } })
+                                  }
+                                />
+                                <span className={`text-xs font-bold ${!user.isCodDisabled ? "text-foreground" : "text-destructive"}`}>
+                                  COD Access {user.isCodDisabled ? "(Banned)" : ""}
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td className="px-5 py-4 text-xs text-muted-foreground">

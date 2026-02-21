@@ -10,6 +10,14 @@ interface RestaurantInfo {
   location?: { lat: number; lng: number };
   logo?: string;
   isOpen: boolean;
+  openingTime?: string;
+  closingTime?: string;
+  isCodEnabled?: boolean;
+  codStartTime?: string;
+  codEndTime?: string;
+  chargePerKm?: number;
+  freeDeliveryRadius?: number;
+  mobile?: string;
 }
 
 interface RestaurantState {

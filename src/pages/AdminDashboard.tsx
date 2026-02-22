@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, UtensilsCrossed, Layers, ClipboardList, BarChart3,
   DollarSign, ShoppingBag, TrendingUp, Package, Plus, Menu, X, Settings, Tag, Users,
-  PieChart as PieChartIcon, MessageSquare,
+  PieChart as PieChartIcon, MessageSquare, Printer,
 } from "lucide-react";
 import AdminMenuTable from "@/components/AdminMenuTable";
 import CategoryManager from "@/components/CategoryManager";
@@ -22,13 +22,15 @@ import DashboardAnalytics from "@/components/DashboardAnalytics";
 import AdminReviews from "@/components/AdminReviews";
 import AdminChat from "@/components/AdminChat";
 import HeroVideoManager from "@/components/HeroVideoManager";
+import AdminPOS from "./AdminPOS";
 
-type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "coupons" | "settings" | "users" | "reviews" | "chat" | "videos";
+type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "coupons" | "settings" | "users" | "reviews" | "chat" | "videos" | "billing";
 
-const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "coupons", "settings", "users", "reviews", "chat", "videos"];
+const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "coupons", "settings", "users", "reviews", "chat", "videos", "billing"];
 
 const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { key: "billing", label: "POS Billing", icon: Printer },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
   { key: "reviews", label: "Reviews", icon: MessageSquare }, // New Reviews Tab
   { key: "menu", label: "Menu Items", icon: UtensilsCrossed },
@@ -200,6 +202,8 @@ const AdminDashboard = () => {
         return <AdminChat />;
       case "videos":
         return <HeroVideoManager />;
+      case "billing":
+        return <AdminPOS />;
       default:
         return null;
     }

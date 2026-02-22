@@ -212,6 +212,11 @@ export const adminApi = {
   addMenuItem: (data: any) => api.post("/menu", data),
   updateMenuItem: (id: string, data: any) => api.put(`/menu/${id}`, data),
   deleteMenuItem: (id: string) => api.delete(`/menu/${id}`),
+
+  // POS (Offline Billing)
+  createPOSOrder: (data: { items: any[]; customerName?: string; customerMobile?: string; paymentMethod: string }) =>
+    api.post("/admin/pos/create", data),
+  getPOSOrders: () => api.get("/admin/pos/orders"),
 };
 
 // ─── Chat ────────────────────────────────────

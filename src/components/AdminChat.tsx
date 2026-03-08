@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { chatApi, uploadApi } from "@/api/axios";
 import { useRestaurantStore } from "@/store/useRestaurantStore";
-import { io, Socket } from "socket.io-client";
+import { socket } from "@/api/socket";
 import { playChatSound } from "@/lib/notification-sound";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
@@ -10,8 +10,6 @@ import {
     MessageSquare, Send, CheckCheck, Circle,
     Trash2, XCircle, RefreshCw, Users, Inbox, AlertTriangle, ImagePlus, X
 } from "lucide-react";
-
-const SOCKET_URL = "https://food-delivery-backend-0aib.onrender.com";
 
 interface Message {
     _id: string;
@@ -101,8 +99,7 @@ const AdminChat = () => {
     const restaurant = useRestaurantStore((s) => s.restaurant);
     const queryClient = useQueryClient();
 
-    // Socket created ONCE — never recreated on re-renders
-    const socketRef = useRef<Socket | null>(null);
+    // Use the shared global socket from @/api/socket
     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     // Use a ref to track activeChatId inside socket handlers without re-subscribing
@@ -142,19 +139,12 @@ const AdminChat = () => {
         enabled: !!activeChatId,
     });
 
-    /* ── Socket.IO — created ONCE on mount ──────── */
+    /* ── Socket.IO — Listeners ──────── */
     useEffect(() => {
-        const socket = io(SOCKET_URL, {
-            transports: ["websocket", "polling"],
-            reconnectionAttempts: 5,
-            reconnectionDelay: 2000,
-        });
-        socketRef.current = socket;
         socket.emit("joinAdminChat");
 
-        socket.on("chatMessage", (data: { chatId: string; userName: string; message: Message }) => {
+        const handleChatMessage = (data: { chatId: string; userName: string; message: Message }) => {
             if (data.message.sender !== "user") return;
-            playChatSound();
             // Update chat list badge — update cache directly to avoid refetch storm
             queryClient.setQueryData<ChatSession[]>(["admin-chats"], (old) => {
                 if (!old) return old;
@@ -193,31 +183,38 @@ const AdminChat = () => {
                     }
                 );
             }
-        });
+        };
 
-        socket.on("typing", (data: { chatId: string }) => {
+        const handleTyping = (data: { chatId: string }) => {
             if (data.chatId !== activeChatIdRef.current) return;
             setIsTyping(true);
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 3000);
-        });
+        };
 
-        socket.on("stopTyping", (data: { chatId: string }) => {
+        const handleStopTyping = (data: { chatId: string }) => {
             if (data.chatId !== activeChatIdRef.current) return;
             setIsTyping(false);
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        });
-
-        socket.on("chatClosed", () => {
-            queryClient.invalidateQueries({ queryKey: ["admin-chats"] });
-        });
-
-        // Cleanup: disconnect socket ONLY when component unmounts
-        return () => {
-            socket.disconnect();
-            socketRef.current = null;
         };
-    }, []); // ← empty deps: socket created once, never recreated
+
+        const handleChatClosed = () => {
+            queryClient.invalidateQueries({ queryKey: ["admin-chats"] });
+        };
+
+        socket.on("chatMessage", handleChatMessage);
+        socket.on("typing", handleTyping);
+        socket.on("stopTyping", handleStopTyping);
+        socket.on("chatClosed", handleChatClosed);
+
+        // Cleanup listeners
+        return () => {
+            socket.off("chatMessage", handleChatMessage);
+            socket.off("typing", handleTyping);
+            socket.off("stopTyping", handleStopTyping);
+            socket.off("chatClosed", handleChatClosed);
+        };
+    }, [queryClient]); // ← activeChatIdRef is used so we don't need activeChatId in deps
 
     /* ── Auto-scroll (within container only) ───── */
     const scrollToBottom = () => {
@@ -270,7 +267,7 @@ const AdminChat = () => {
         setSending(true);
         // Stop typing indicator on the user side immediately
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        socketRef.current?.emit("stopTyping", { chatId: activeChatId });
+        socket.emit("stopTyping", { chatId: activeChatId });
         try {
             let uploadedImageUrls: string[] = [];
             if (selectedImages.length > 0) {
@@ -627,11 +624,11 @@ const AdminChat = () => {
                                             onChange={(e) => {
                                                 setReplyText(e.target.value);
                                                 // Emit typing indicator to user
-                                                if (socketRef.current && activeChatId) {
-                                                    socketRef.current.emit("typing", { chatId: activeChatId });
+                                                if (activeChatId) {
+                                                    socket.emit("typing", { chatId: activeChatId });
                                                     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
                                                     typingTimeoutRef.current = setTimeout(() => {
-                                                        socketRef.current?.emit("stopTyping", { chatId: activeChatId });
+                                                        socket.emit("stopTyping", { chatId: activeChatId });
                                                     }, 1500);
                                                 }
                                             }}

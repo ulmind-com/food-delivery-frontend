@@ -42,6 +42,8 @@ export function LocationPickerModal({
     const [confirming, setConfirming] = useState(false);
     const { setSelectedAddress } = useLocationStore();
 
+    const [locationPermission, setLocationPermission] = useState<'pending' | 'granted' | 'denied' | 'ready'>('pending');
+
     const doReverseGeocode = async (lat: number, lng: number) => {
         setGeocoding(true);
         try {
@@ -72,74 +74,88 @@ export function LocationPickerModal({
         }
     };
 
-    // Initialize map when modal opens
+    const initMap = (lat: number, lng: number) => {
+        if (!mapRef.current) return;
+
+        if (leafletMapRef.current) {
+            leafletMapRef.current.remove();
+            leafletMapRef.current = null;
+            markerRef.current = null;
+        }
+
+        const map = L.map(mapRef.current, {
+            center: [lat, lng],
+            zoom: 16,
+            zoomControl: true,
+        });
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        }).addTo(map);
+
+        const marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+
+        marker.on("dragend", () => {
+            const { lat: newLat, lng: newLng } = marker.getLatLng();
+            doReverseGeocode(newLat, newLng);
+        });
+
+        map.on("click", (e: L.LeafletMouseEvent) => {
+            const { lat: newLat, lng: newLng } = e.latlng;
+            marker.setLatLng([newLat, newLng]);
+            doReverseGeocode(newLat, newLng);
+        });
+
+        leafletMapRef.current = map;
+        markerRef.current = marker;
+
+        doReverseGeocode(lat, lng);
+
+        setTimeout(() => map.invalidateSize(), 300);
+    };
+
+    const requestLocation = () => {
+        setLocationPermission('pending');
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                setLocationPermission('granted');
+                setTimeout(() => initMap(latitude, longitude), 100);
+            },
+            (error) => {
+                console.error("Location error:", error);
+
+                // Show a toast if user explicitly denied it before (so the browser blocked it)
+                if (error.code === error.PERMISSION_DENIED) {
+                    toast.error("Location access is blocked in your browser settings. Please enable it or locate manually.", {
+                        duration: 5000
+                    });
+                }
+
+                setLocationPermission('denied');
+            },
+            { timeout: 10000, enableHighAccuracy: true }
+        );
+    };
+
+    const proceedWithDefault = () => {
+        setLocationPermission('granted');
+        setTimeout(() => initMap(22.0531, 88.0772), 100); // Default to Haldia HIT area
+    };
+
+    // Initialize when modal opens
     useEffect(() => {
         if (!isOpen) return;
 
-        // Small delay to ensure DOM is ready
-        const timer = setTimeout(() => {
-            if (!mapRef.current) return;
-
-            // Destroy existing map instance if any
-            if (leafletMapRef.current) {
-                leafletMapRef.current.remove();
-                leafletMapRef.current = null;
-                markerRef.current = null;
-            }
-
-            const defaultLat = initialLat ?? 22.5726;
-            const defaultLng = initialLng ?? 88.3639;
-
-            const map = L.map(mapRef.current, {
-                center: [defaultLat, defaultLng],
-                zoom: 16,
-                zoomControl: true,
-            });
-
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            }).addTo(map);
-
-            const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
-
-            marker.on("dragend", () => {
-                const { lat, lng } = marker.getLatLng();
-                doReverseGeocode(lat, lng);
-            });
-
-            map.on("click", (e: L.LeafletMouseEvent) => {
-                const { lat, lng } = e.latlng;
-                marker.setLatLng([lat, lng]);
-                doReverseGeocode(lat, lng);
-            });
-
-            leafletMapRef.current = map;
-            markerRef.current = marker;
-
-            // Try browser geolocation if no initial coords
-            if (!initialLat && !initialLng) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const { latitude, longitude } = pos.coords;
-                        map.setView([latitude, longitude], 16);
-                        marker.setLatLng([latitude, longitude]);
-                        doReverseGeocode(latitude, longitude);
-                    },
-                    () => {
-                        doReverseGeocode(defaultLat, defaultLng);
-                    },
-                    { timeout: 8000 }
-                );
-            } else {
-                doReverseGeocode(defaultLat, defaultLng);
-            }
-
-            // Fix map tile rendering after modal animation
-            setTimeout(() => map.invalidateSize(), 300);
-        }, 100);
+        if (initialLat && initialLng) {
+            setLocationPermission('ready');
+            setTimeout(() => initMap(initialLat, initialLng), 100);
+        } else {
+            requestLocation();
+        }
 
         return () => {
-            clearTimeout(timer);
+            // cleanup is handled below
         };
     }, [isOpen]);
 
@@ -260,7 +276,41 @@ export function LocationPickerModal({
                     </div>
 
                     {/* Map Container — vanilla Leaflet mounts here */}
-                    <div ref={mapRef} className="flex-1 w-full" style={{ minHeight: 0 }} />
+                    <div className="flex-1 relative w-full flex flex-col" style={{ minHeight: 0 }}>
+                        {locationPermission === 'pending' && (
+                            <div className="absolute inset-0 z-[1000] bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center">
+                                <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+                                <h3 className="text-lg font-bold">Locating You...</h3>
+                                <p className="text-sm text-muted-foreground mt-2">Please allow location access when prompted.</p>
+                            </div>
+                        )}
+                        {locationPermission === 'denied' && (
+                            <div className="absolute inset-0 z-[1000] bg-background flex flex-col items-center justify-center p-6 text-center">
+                                <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                                    <MapPin className="h-8 w-8 text-red-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-foreground">Location Access Needed</h3>
+                                <p className="text-sm text-muted-foreground mt-2 mb-6 max-w-xs mx-auto">
+                                    We need your location to show accurate delivery options. Please enable location permissions in your browser settings.
+                                </p>
+                                <div className="space-y-3 w-full max-w-[250px]">
+                                    <button
+                                        onClick={requestLocation}
+                                        className="w-full bg-primary text-white font-bold py-3 rounded-xl shadow-md active:scale-95 transition-transform"
+                                    >
+                                        Enable Location
+                                    </button>
+                                    <button
+                                        onClick={proceedWithDefault}
+                                        className="w-full bg-secondary text-secondary-foreground font-bold py-3 rounded-xl active:scale-95 transition-transform"
+                                    >
+                                        Locate Manually
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={mapRef} className="absolute inset-0 z-0" />
+                    </div>
 
                     {/* Bottom Address Card */}
                     <motion.div

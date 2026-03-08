@@ -131,6 +131,14 @@
     background: hsl(var(--background) / 0.7);
   }
 
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Phone Input Styling */
   .phone-input-custom .PhoneInputCountry {
     @apply mr-3 flex items-center;

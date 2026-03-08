@@ -206,9 +206,11 @@ export const adminApi = {
   getOrders: () => api.get("/admin/orders"),
   getOrdersByStatus: (status: string) => api.get(`/admin/orders/${status}`),
   getAnalytics: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/analytics", { params }),
+  getMapAnalytics: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/analytics/map", { params }),
   updateOrderStatus: (id: string, data: { status: string }) => api.put(`/admin/orders/${id}/status`, data),
   cancelOrder: (id: string) => api.put(`/admin/orders/${id}/status`, { status: "CANCELLED" }),
   updatePaymentStatus: (id: string, data: { paymentStatus: string }) => api.put(`/admin/orders/${id}/payment-status`, data),
+  updatePreparationTime: (id: string, data: { preparationTime: number }) => api.put(`/admin/orders/${id}/preparation-time`, data),
   addMenuItem: (data: any) => api.post("/menu", data),
   updateMenuItem: (id: string, data: any) => api.put(`/menu/${id}`, data),
   deleteMenuItem: (id: string) => api.delete(`/menu/${id}`),
@@ -233,4 +235,16 @@ export const chatApi = {
   adminReply: (chatId: string, data: { text: string; images?: string[] }) => api.post(`/chat/admin/${chatId}/message`, data),
   closeChat: (chatId: string) => api.put(`/chat/admin/${chatId}/close`),
   deleteChat: (chatId: string) => api.delete(`/chat/admin/${chatId}`),
+};
+
+// ─── Vlogs / Gallery ────────────────────────────────────
+export const vlogApi = {
+  // Public
+  getPublicVlogs: () => api.get("/vlogs"),
+  incrementView: (id: string) => api.put(`/vlogs/${id}/view`),
+  // Admin
+  getAdminVlogs: () => api.get("/vlogs/admin"),
+  createVlog: (data: any) => api.post("/vlogs", data),
+  updateVlog: (id: string, data: any) => api.put(`/vlogs/${id}`, data),
+  deleteVlog: (id: string) => api.delete(`/vlogs/${id}`),
 };

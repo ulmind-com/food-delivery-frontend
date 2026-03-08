@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { menuApi, adminApi, restaurantApi } from '@/api/axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Minus, Trash2, Printer, Receipt, ChefHat } from 'lucide-react';
+import { Search, Plus, Minus, Trash2, Printer, Receipt, ChefHat, Percent, Tag } from 'lucide-react';
 import { toast } from 'sonner';
 
 
@@ -38,6 +38,8 @@ export default function AdminPOS() {
     const [showReceipt, setShowReceipt] = useState(false);
     const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
     const [lastOrder, setLastOrder] = useState<any>(null);
+    const [discountType, setDiscountType] = useState<'FLAT' | 'PERCENTAGE'>('FLAT');
+    const [discountValue, setDiscountValue] = useState<string>('');
 
     // Fetch Menu
     const { data: menuData = [], isLoading } = useQuery({
@@ -126,7 +128,18 @@ export default function AdminPOS() {
         }, 0);
     }, [cart]);
 
-    const grandTotal = Math.ceil(cartTotal + taxTotal);
+    const discountAmount = useMemo(() => {
+        const val = parseFloat(discountValue) || 0;
+        if (val <= 0) return 0;
+        const subtotalWithTax = cartTotal + taxTotal;
+        if (discountType === 'FLAT') {
+            return Math.min(val, subtotalWithTax);
+        } else {
+            return Math.min((subtotalWithTax * val) / 100, subtotalWithTax);
+        }
+    }, [cartTotal, taxTotal, discountType, discountValue]);
+
+    const grandTotal = Math.ceil(cartTotal + taxTotal - discountAmount);
 
     // Create POS Order Mutation
     const createPosMutation = useMutation({
@@ -140,6 +153,8 @@ export default function AdminPOS() {
             setCustomerName('');
             setCustomerMobile('');
             setPaymentMethod('CASH');
+            setDiscountType('FLAT');
+            setDiscountValue('');
         },
         onError: (err: any) => {
             toast.error(err.response?.data?.message || "Failed to generate bill");
@@ -156,9 +171,11 @@ export default function AdminPOS() {
             customerName,
             customerMobile,
             paymentMethod,
+            discountType: parseFloat(discountValue) > 0 ? discountType : 'NONE',
+            discountValue: parseFloat(discountValue) || 0,
             items: cart.map(item => ({
                 product: item._id,
-                variant: 'Standard', // Simplify for POS for now, can expand later
+                variant: 'Standard',
                 quantity: item.cartQuantity
             }))
         };
@@ -386,6 +403,38 @@ export default function AdminPOS() {
                                 ))}
                             </div>
 
+                            {/* Discount Section */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Tag className="h-4 w-4 text-green-600" />
+                                    <span className="text-sm font-bold text-foreground">Discount</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="flex p-0.5 bg-muted rounded-lg flex-shrink-0">
+                                        <button
+                                            onClick={() => setDiscountType('FLAT')}
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${discountType === 'FLAT' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+                                        >
+                                            ₹ Flat
+                                        </button>
+                                        <button
+                                            onClick={() => setDiscountType('PERCENTAGE')}
+                                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-1 ${discountType === 'PERCENTAGE' ? 'bg-background shadow text-foreground' : 'text-muted-foreground'}`}
+                                        >
+                                            <Percent className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder={discountType === 'FLAT' ? 'Amount (₹)' : 'Percent (%)'}
+                                        value={discountValue}
+                                        onChange={(e) => setDiscountValue(e.target.value)}
+                                        className="flex-1 px-3 py-1.5 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-1 focus:ring-green-500"
+                                    />
+                                </div>
+                            </div>
+
                             {/* Totals */}
                             <div className="space-y-1.5 text-sm">
                                 <div className="flex justify-between text-muted-foreground">
@@ -396,6 +445,12 @@ export default function AdminPOS() {
                                     <span>Taxes (GST)</span>
                                     <span>₹{taxTotal.toFixed(2)}</span>
                                 </div>
+                                {discountAmount > 0 && (
+                                    <div className="flex justify-between text-green-600 font-medium">
+                                        <span>Discount ({discountType === 'FLAT' ? `₹${parseFloat(discountValue).toFixed(0)}` : `${discountValue}%`})</span>
+                                        <span>-₹{discountAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between font-extrabold text-xl pt-2 border-t border-border/50">
                                     <span>Total</span>
                                     <span>₹{grandTotal.toFixed(2)}</span>
@@ -472,6 +527,12 @@ export default function AdminPOS() {
                                             <span>Taxes (GST)</span>
                                             <span>₹{(lastOrder.taxAmount || 0).toFixed(2)}</span>
                                         </div>
+                                        {lastOrder.discountApplied > 0 && (
+                                            <div className="flex justify-between text-green-600">
+                                                <span>Discount ({lastOrder.discountType === 'PERCENTAGE' ? `${lastOrder.discountValue}%` : `₹${lastOrder.discountValue}`})</span>
+                                                <span>-₹{(lastOrder.discountApplied || 0).toFixed(2)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between font-black text-lg pt-2 mt-2 border-t border-gray-300">
                                             <span>TOTAL</span>
                                             <span>₹{(lastOrder.finalAmount || 0).toFixed(2)}</span>
@@ -539,6 +600,12 @@ export default function AdminPOS() {
                                     <span>Taxes</span>
                                     <span>₹{(lastOrder.taxAmount || 0).toFixed(2)}</span>
                                 </div>
+                                {lastOrder.discountApplied > 0 && (
+                                    <div className="flex justify-between">
+                                        <span>Discount ({lastOrder.discountType === 'PERCENTAGE' ? `${lastOrder.discountValue}%` : `₹${lastOrder.discountValue}`})</span>
+                                        <span>-₹{(lastOrder.discountApplied || 0).toFixed(2)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between font-black text-sm pt-1 mt-1 border-t border-black">
                                     <span>TOTAL</span>
                                     <span>₹{(lastOrder.finalAmount || 0).toFixed(2)}</span>
@@ -610,6 +677,9 @@ function POSHistory({ onReprint }: { onReprint: (order: any) => void }) {
                                 </span>
                                 <span className="text-xs text-muted-foreground mt-1">
                                     {order.items?.length || 0} Items • {order.paymentMethod}
+                                    {order.discountApplied > 0 && (
+                                        <span className="ml-2 text-green-600 font-semibold">• Disc: ₹{order.discountApplied?.toFixed(2)}</span>
+                                    )}
                                 </span>
                             </div>
 

@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Search, ArrowRight } from "lucide-react";
+import { Search, ArrowRight, Zap, ChevronRight } from "lucide-react";
 import { menuApi, restaurantApi } from "@/api/axios";
 import { useAuthStore } from "@/store/useAuthStore";
 import ProductCard from "@/components/ProductCard";
 import CategoryCarousel from "@/components/CategoryCarousel";
 import { SkeletonCard, SkeletonCategory } from "@/components/Skeletons";
+import { resolveImageURL } from "@/lib/image-utils";
 
 
 const PLACEHOLDER_TEXTS = [
@@ -267,6 +268,50 @@ const Index = () => {
           <div className="border-t border-border" />
         </div>
       )}
+
+      {/* ── Today's Deals Section ─────────────────────────────────────── */}
+      {!search && !category && (() => {
+        const dealItems = (rawMenuItems || []).filter((p: any) => p.hasDiscount && p.originalPrice);
+        if (dealItems.length === 0) return null;
+        return (
+          <section className="container mx-auto px-4 pt-8 pb-2">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
+                  <Zap className="h-4 w-4 text-white" fill="white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-foreground leading-tight">Today's Deals</h2>
+                  <p className="text-[11px] text-muted-foreground">Limited time offers on your favourites</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-primary flex items-center gap-0.5">
+                {dealItems.length} offers <ChevronRight className="h-3 w-3" />
+              </span>
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 scroll-smooth no-scrollbar">
+              {dealItems.map((item: any) => {
+                let effectiveItem = item;
+                if (typeof item.category === "string" && categories) {
+                  const foundCat = categories.find((c: any) => c._id === item.category);
+                  if (foundCat) {
+                    effectiveItem = { ...item, category: foundCat };
+                  }
+                }
+
+                return (
+                  <div key={`deal-${item._id}`} className="flex-shrink-0 w-[85vw] sm:w-[320px] pb-4">
+                    <ProductCard item={effectiveItem} />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-border" />
+          </section>
+        );
+      })()}
 
       {/* Menu Grid */}
       <section className="container mx-auto px-4 pt-10 pb-8">

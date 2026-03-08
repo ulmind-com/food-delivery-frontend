@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { Plus, Minus } from "lucide-react";
+import { Plus, Minus, Zap } from "lucide-react";
 import { resolveImageURL } from "@/lib/image-utils";
 import { ProductDetailDrawer } from "./ProductDetailDrawer";
 
@@ -79,8 +79,11 @@ const ProductCard = ({ item }: ProductCardProps) => {
         animate={{ opacity: 1, y: 0 }}
         whileHover={{ y: -4 }}
         transition={{ duration: 0.3 }}
-        onClick={() => setIsDrawerOpen(true)} // Open drawer on click
-        className="group flex gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm transition-shadow hover:cursor-pointer hover:shadow-lg"
+        onClick={() => setIsDrawerOpen(true)}
+        className={`group flex gap-4 rounded-2xl border bg-card p-4 shadow-sm transition-all hover:cursor-pointer hover:shadow-lg ${item.hasDiscount
+          ? 'border-green-500/30 ring-1 ring-green-500/10 hover:border-green-500/50'
+          : 'border-border'
+          }`}
       >
         {/* Text */}
         <div className="flex flex-1 flex-col justify-between">
@@ -92,21 +95,42 @@ const ProductCard = ({ item }: ProductCardProps) => {
                   {typeof item.category === "object" ? item.category.name : item.category}
                 </span>
               )}
+              {item.hasDiscount && (
+                <span className="ml-auto flex items-center gap-0.5 rounded-full bg-green-500/10 px-1.5 py-0.5 text-[10px] font-bold text-green-600 dark:text-green-400">
+                  <Zap className="h-2.5 w-2.5" /> Deal
+                </span>
+              )}
             </div>
             <h3 className="text-base font-bold leading-tight text-foreground">
               {item.name}
             </h3>
-            <div className="mt-0.5 flex flex-wrap items-baseline gap-2">
-              <span className="text-sm font-semibold text-foreground">₹{displayPrice}</span>
-              {item.hasDiscount && item.originalPrice && (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {item.hasDiscount && item.originalPrice ? (
                 <>
-                  <span className="text-xs text-muted-foreground line-through">₹{item.originalPrice}</span>
-                  <span className="text-xs font-bold text-swiggy-orange uppercase">{item.discountPercentage}% OFF</span>
+                  <span className="relative text-sm font-semibold text-muted-foreground">
+                    ₹{item.originalPrice}
+                    <span className="absolute left-0 right-0 top-1/2 h-[2px] bg-red-500 -rotate-[8deg]" />
+                  </span>
+                  <span className="text-base font-extrabold text-green-600 dark:text-green-400">
+                    ₹{displayPrice}
+                  </span>
                 </>
+              ) : (
+                <span className="text-sm font-bold text-foreground">₹{displayPrice}</span>
               )}
             </div>
-            {item.description && (
+            {item.hasDiscount && item.originalPrice && (
+              <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-green-600 dark:text-green-400">
+                You save ₹{(item.originalPrice - displayPrice).toFixed(0)} on this item
+              </p>
+            )}
+            {item.description && !item.hasDiscount && (
               <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                {item.description}
+              </p>
+            )}
+            {item.description && item.hasDiscount && (
+              <p className="mt-0.5 line-clamp-1 text-xs leading-relaxed text-muted-foreground">
                 {item.description}
               </p>
             )}
@@ -115,7 +139,7 @@ const ProductCard = ({ item }: ProductCardProps) => {
 
         {/* Image + Cart */}
         <div className="relative flex-shrink-0">
-          <div className="h-28 w-28 overflow-hidden rounded-xl">
+          <div className={`h-28 w-28 overflow-hidden rounded-xl ${item.hasDiscount ? 'ring-2 ring-green-500/20' : ''}`}>
             <img
               src={imageUrl}
               alt={item.name}
@@ -124,9 +148,16 @@ const ProductCard = ({ item }: ProductCardProps) => {
             />
             <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/20 to-transparent" />
             {item.hasDiscount && (
-              <div className="absolute top-0 left-0 bg-swiggy-orange text-white text-[10px] font-bold px-2 py-1 rounded-tl-xl rounded-br-lg shadow-sm">
-                {item.discountPercentage}% OFF
-              </div>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1 -left-1 flex items-center gap-0.5 rounded-br-xl rounded-tl-xl bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 px-2 py-1 shadow-lg"
+              >
+                <span className="text-[11px] font-black text-white drop-shadow-sm">
+                  {item.discountPercentage}%
+                </span>
+                <span className="text-[9px] font-bold text-white/90">OFF</span>
+              </motion.div>
             )}
           </div>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { adminApi } from "@/api/axios";
+import { adminApi, chatApi } from "@/api/axios";
 import { toast } from "sonner";
 import { socket } from "@/api/socket";
 import { playNewOrderSound, playChatSound } from "@/lib/notification-sound";
@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, UtensilsCrossed, Layers, ClipboardList, BarChart3,
   DollarSign, ShoppingBag, TrendingUp, Package, Plus, Menu, X, Settings, Tag, Users,
-  PieChart as PieChartIcon, MessageSquare, Printer,
+  PieChart as PieChartIcon, MessageSquare, Printer, Map as MapIcon, Film,
 } from "lucide-react";
 import AdminMenuTable from "@/components/AdminMenuTable";
 import CategoryManager from "@/components/CategoryManager";
@@ -22,16 +22,19 @@ import DashboardAnalytics from "@/components/DashboardAnalytics";
 import AdminReviews from "@/components/AdminReviews";
 import AdminChat from "@/components/AdminChat";
 import HeroVideoManager from "@/components/HeroVideoManager";
+import AdminMapAnalytics from "@/components/AdminMapAnalytics";
 import AdminPOS from "./AdminPOS";
+import AdminVlogs from "@/components/AdminVlogs";
 
-type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "coupons" | "settings" | "users" | "reviews" | "chat" | "videos" | "billing";
+type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "map" | "coupons" | "settings" | "users" | "reviews" | "chat" | "videos" | "billing" | "vlogs";
 
-const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "coupons", "settings", "users", "reviews", "chat", "videos", "billing"];
+const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "map", "coupons", "settings", "users", "reviews", "chat", "videos", "billing", "vlogs"];
 
 const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { key: "billing", label: "POS Billing", icon: Printer },
   { key: "analytics", label: "Analytics", icon: BarChart3 },
+  { key: "map", label: "Map Analytics", icon: MapIcon },
   { key: "reviews", label: "Reviews", icon: MessageSquare }, // New Reviews Tab
   { key: "menu", label: "Menu Items", icon: UtensilsCrossed },
   { key: "categories", label: "Categories", icon: Layers },
@@ -39,6 +42,7 @@ const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "users", label: "Users", icon: Users },
   { key: "orders", label: "Orders", icon: ClipboardList },
   { key: "videos", label: "Hero Videos", icon: Package },
+  { key: "vlogs", label: "Vlogs / Gallery", icon: Film },
   { key: "chat", label: "Chat", icon: MessageSquare },
   { key: "settings", label: "Settings", icon: Settings },
 ];
@@ -50,6 +54,14 @@ const AdminDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab") as AdminTab | null;
   const activeTab: AdminTab = tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : "dashboard";
+
+  // Fetch admin chats to calculate unread badge
+  const { data: adminChats } = useQuery({
+    queryKey: ["admin-chats"],
+    queryFn: () => chatApi.getAllChats().then((r) => r.data || []),
+  });
+
+  const totalUnreadChats = (adminChats || []).reduce((acc: number, chat: any) => acc + (chat.unreadByAdmin || 0), 0);
 
   // Global socket listeners — orders + chat (from any admin section)
   useEffect(() => {
@@ -156,6 +168,8 @@ const AdminDashboard = () => {
         );
       case "analytics":
         return <DashboardAnalytics />;
+      case "map":
+        return <AdminMapAnalytics />;
       case "reviews":
         return <AdminReviews />;
       case "menu":
@@ -204,6 +218,8 @@ const AdminDashboard = () => {
         return <HeroVideoManager />;
       case "billing":
         return <AdminPOS />;
+      case "vlogs":
+        return <AdminVlogs />;
       default:
         return null;
     }
@@ -240,13 +256,20 @@ const AdminDashboard = () => {
               <button
                 key={link.key}
                 onClick={() => { setActiveTab(link.key); setSidebarOpen(false); }}
-                className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all ${active
+                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm font-medium transition-all ${active
                   ? "bg-sidebar-accent text-sidebar-primary font-semibold"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/50"
                   }`}
               >
-                <Icon className={`h-5 w-5 ${active ? "text-sidebar-primary" : ""}`} />
-                {link.label}
+                <div className="flex items-center gap-3">
+                  <Icon className={`h-5 w-5 ${active ? "text-sidebar-primary" : ""}`} />
+                  {link.label}
+                </div>
+                {link.key === "chat" && totalUnreadChats > 0 && (
+                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white shadow-sm">
+                    {totalUnreadChats}
+                  </span>
+                )}
               </button>
             );
           })}

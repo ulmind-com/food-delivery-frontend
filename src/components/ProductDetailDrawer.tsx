@@ -3,7 +3,7 @@ import { menuApi } from "@/api/axios";
 import { useCartStore } from "@/store/useCartStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { resolveImageURL } from "@/lib/image-utils";
-import { Loader2, Plus, Minus, X, ShoppingCart } from "lucide-react";
+import { Loader2, Plus, Minus, X, ShoppingCart, Zap, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -150,6 +150,21 @@ export function ProductDetailDrawer({
                                             className="h-full w-full object-cover"
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
+
+                                        {/* Discount Badge on Image */}
+                                        {product.hasDiscount && (
+                                            <motion.div
+                                                initial={{ x: -60 }}
+                                                animate={{ x: 0 }}
+                                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                                                className="absolute top-4 left-0 flex items-center gap-1.5 rounded-r-full bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 pl-3 pr-4 py-2 shadow-xl"
+                                            >
+                                                <Zap className="h-4 w-4 text-white" fill="white" />
+                                                <span className="text-sm font-black text-white tracking-wide">
+                                                    {product.discountPercentage}% OFF
+                                                </span>
+                                            </motion.div>
+                                        )}
                                     </div>
 
                                     {/* Details */}
@@ -178,19 +193,43 @@ export function ProductDetailDrawer({
                                         </h2>
 
                                         {/* Price */}
-                                        <div className="mt-1 flex items-baseline gap-3">
-                                            <p className="text-xl font-bold text-primary">
-                                                ₹{displayPrice}
-                                            </p>
-                                            {product.hasDiscount && product.originalPrice && (
+                                        <div className="mt-2 flex items-center gap-3">
+                                            {product.hasDiscount && product.originalPrice ? (
                                                 <>
-                                                    <span className="text-sm text-muted-foreground line-through">₹{product.originalPrice}</span>
-                                                    <span className="rounded-md bg-swiggy-orange/10 px-2 py-0.5 text-xs font-bold text-swiggy-orange uppercase border border-swiggy-orange/20">
-                                                        {product.discountPercentage}% OFF
+                                                    <span className="relative text-lg font-semibold text-muted-foreground">
+                                                        ₹{product.originalPrice}
+                                                        <span className="absolute left-0 right-0 top-1/2 h-[2px] bg-red-500 -rotate-[8deg]" />
                                                     </span>
+                                                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                                        ₹{displayPrice}
+                                                    </p>
                                                 </>
+                                            ) : (
+                                                <p className="text-2xl font-bold text-primary">
+                                                    ₹{displayPrice}
+                                                </p>
                                             )}
                                         </div>
+
+                                        {/* Savings Banner */}
+                                        {product.hasDiscount && product.originalPrice && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: 0.2 }}
+                                                className="mt-3 flex items-center gap-2 rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-2.5"
+                                            >
+                                                <span className="text-lg">🎉</span>
+                                                <div>
+                                                    <p className="text-sm font-bold text-green-600 dark:text-green-400">
+                                                        You save ₹{(product.originalPrice - displayPrice).toFixed(0)} on this item!
+                                                    </p>
+                                                    <p className="text-[11px] text-green-600/70 dark:text-green-400/60">
+                                                        Great deal — limited time offer
+                                                    </p>
+                                                </div>
+                                            </motion.div>
+                                        )}
 
                                         <div className="my-5 h-px w-full bg-border" />
 

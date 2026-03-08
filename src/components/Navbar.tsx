@@ -7,6 +7,7 @@ import {
   Package,
   Navigation,
   ShoppingCart,
+  Film,
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useLocationStore } from "@/store/useLocationStore";
@@ -113,11 +114,13 @@ const Navbar = () => {
                 <>
                   <NavLink to="/admin" icon={<LayoutDashboard className="h-4 w-4" />} label="Dashboard" />
                   <NavLink to="/" icon={<UtensilsCrossed className="h-4 w-4" />} label="Menu" />
+                  <NavLink to="/vlogs" icon={<Film className="h-4 w-4" />} label="Vlogs" />
                 </>
               ) : (
                 /* Customer links */
                 <>
                   <NavLink to="/my-orders" icon={<Package className="h-4 w-4" />} label="Orders" />
+                  <NavLink to="/vlogs" icon={<Film className="h-4 w-4" />} label="Vlogs" />
                   {/* Cart button — desktop only (mobile uses CartBar) */}
                   <button
                     onClick={toggleCart}

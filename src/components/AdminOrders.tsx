@@ -61,29 +61,128 @@ const AdminOrders = () => {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => adminApi.updateOrderStatus(id, { status }),
-    onSuccess: () => {
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-orders", filterStatus] });
+      const previousOrders = queryClient.getQueryData(["admin-orders", filterStatus]);
+      queryClient.setQueryData(["admin-orders", filterStatus], (old: any) => {
+        if (!old) return old;
+        return old.map((order: any) =>
+          order._id === id ? { ...order, orderStatus: status, status } : order
+        );
+      });
+      // Also update selectedOrder optimistically if it's the one being modified
+      if (selectedOrder?._id === id) {
+        setSelectedOrder({ ...selectedOrder, orderStatus: status, status });
+      }
+      return { previousOrders };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousOrders) {
+        queryClient.setQueryData(["admin-orders", filterStatus], context.previousOrders);
+      }
+      toast.error("Failed to update status");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onSuccess: () => {
       toast.success("Order status updated");
     },
-    onError: () => toast.error("Failed to update status"),
   });
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => adminApi.updateOrderStatus(id, { status: "CANCELLED" }),
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-orders", filterStatus] });
+      const previousOrders = queryClient.getQueryData(["admin-orders", filterStatus]);
+      queryClient.setQueryData(["admin-orders", filterStatus], (old: any) => {
+        if (!old) return old;
+        return old.map((order: any) =>
+          order._id === id ? { ...order, orderStatus: "CANCELLED", status: "CANCELLED" } : order
+        );
+      });
+      if (selectedOrder?._id === id) {
+        setSelectedOrder({ ...selectedOrder, orderStatus: "CANCELLED", status: "CANCELLED" });
+      }
+      return { previousOrders };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousOrders) {
+        queryClient.setQueryData(["admin-orders", filterStatus], context.previousOrders);
+      }
+      toast.error("Failed to cancel order");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onSuccess: () => {
       toast.success("Order cancelled");
     },
-    onError: () => toast.error("Failed to cancel order"),
   });
 
   const paymentStatusMutation = useMutation({
     mutationFn: ({ id, paymentStatus }: { id: string; paymentStatus: string }) => adminApi.updatePaymentStatus(id, { paymentStatus }),
-    onSuccess: () => {
+    onMutate: async ({ id, paymentStatus }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-orders", filterStatus] });
+      const previousOrders = queryClient.getQueryData(["admin-orders", filterStatus]);
+      queryClient.setQueryData(["admin-orders", filterStatus], (old: any) => {
+        if (!old) return old;
+        return old.map((order: any) =>
+          order._id === id ? { ...order, paymentStatus } : order
+        );
+      });
+      if (selectedOrder?._id === id) {
+        setSelectedOrder({ ...selectedOrder, paymentStatus });
+      }
+      return { previousOrders };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousOrders) {
+        queryClient.setQueryData(["admin-orders", filterStatus], context.previousOrders);
+      }
+      toast.error("Failed to update payment status");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onSuccess: () => {
       toast.success("Payment status updated");
     },
-    onError: () => toast.error("Failed to update payment status"),
+  });
+
+  const prepTimeMutation = useMutation({
+    mutationFn: ({ id, time }: { id: string; time: number }) => adminApi.updatePreparationTime(id, { preparationTime: time }),
+    onMutate: async ({ id, time }) => {
+      await queryClient.cancelQueries({ queryKey: ["admin-orders", filterStatus] });
+      const previousOrders = queryClient.getQueryData(["admin-orders", filterStatus]);
+      queryClient.setQueryData(["admin-orders", filterStatus], (old: any) => {
+        if (!old) return old;
+        return old.map((order: any) => {
+          if (order._id === id) {
+            const newStatus = (order.orderStatus === "ACCEPTED" || order.status === "ACCEPTED") ? "PREPARING" : (order.orderStatus || order.status);
+            return { ...order, preparationTime: time, orderStatus: newStatus, status: newStatus };
+          }
+          return order;
+        });
+      });
+      if (selectedOrder?._id === id) {
+        const newStatus = (selectedOrder.orderStatus === "ACCEPTED" || selectedOrder.status === "ACCEPTED") ? "PREPARING" : (selectedOrder.orderStatus || selectedOrder.status);
+        setSelectedOrder({ ...selectedOrder, preparationTime: time, orderStatus: newStatus, status: newStatus });
+      }
+      return { previousOrders };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousOrders) {
+        queryClient.setQueryData(["admin-orders", filterStatus], context.previousOrders);
+      }
+      toast.error("Failed to update preparation time");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+    },
+    onSuccess: (res) => {
+      toast.success("Preparation time updated");
+    },
   });
 
   const downloadCSV = () => {
@@ -225,6 +324,7 @@ const AdminOrders = () => {
                     <th className="px-4 py-3 text-left font-bold text-muted-foreground">Items</th>
                     <th className="px-4 py-3 text-left font-bold text-muted-foreground">Amount</th>
                     <th className="px-4 py-3 text-left font-bold text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 text-center font-bold text-muted-foreground">Prep Time</th>
                     <th className="px-4 py-3 text-center font-bold text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
@@ -278,6 +378,35 @@ const AdminOrders = () => {
                               {STATUSES.map((s) => <SelectItem key={s} value={s}>{s.replace(/_/g, " ")}</SelectItem>)}
                             </SelectContent>
                           </Select>
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs min-w-[130px]">
+                          {["ACCEPTED", "PREPARING"].includes(statusKey) ? (
+                            <div className="flex items-center justify-center gap-1.5">
+                              <input
+                                type="number"
+                                min="1"
+                                defaultValue={order.preparationTime || ""}
+                                id={`prep-time-inline-${order._id}`}
+                                className="w-14 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5 text-center font-semibold text-orange-900 focus:border-orange-400 focus:outline-none dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-100"
+                                placeholder="Mins"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const val = (document.getElementById(`prep-time-inline-${order._id}`) as HTMLInputElement)?.value;
+                                  if (!val || Number(val) <= 0) return toast.error("Enter valid time");
+                                  prepTimeMutation.mutate({ id: order._id, time: Number(val) });
+                                }}
+                                disabled={prepTimeMutation.isPending}
+                                className="rounded-md bg-orange-500 px-2 py-1.5 font-bold text-white hover:bg-orange-600 disabled:opacity-50"
+                              >
+                                Set
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground/50 border border-dashed border-border px-3 py-1 rounded-md bg-muted/20">N/A</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-1">
@@ -355,6 +484,40 @@ const AdminOrders = () => {
                 <p className="mt-1 ml-6 text-red-700/90 dark:text-red-300/90">
                   {selectedOrder.cancellationReason || "No reason provided."}
                 </p>
+              </div>
+            )}
+
+            {selectedOrder && (["ACCEPTED", "PREPARING"].includes(selectedOrder.status) || ["ACCEPTED", "PREPARING"].includes(selectedOrder.orderStatus)) && (
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm dark:border-orange-900/30 dark:bg-orange-950/20">
+                <div>
+                  <p className="font-bold flex items-center gap-2 text-orange-800 dark:text-orange-200">
+                    <ChefHat className="h-4 w-4" /> Preparation Time
+                  </p>
+                  <p className="mt-1 text-orange-700/90 dark:text-orange-300/90 text-xs">
+                    Set the estimated preparation time. If the order is Accepted, it will automatically move to Preparing.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Mins"
+                    className="w-20 rounded-lg border border-orange-200 bg-white px-3 py-2 text-sm font-semibold text-orange-900 focus:border-orange-400 focus:outline-none dark:border-orange-800 dark:bg-orange-900/50 dark:text-orange-100"
+                    defaultValue={selectedOrder.preparationTime || ""}
+                    id={`prep-time-input`}
+                  />
+                  <button
+                    onClick={() => {
+                      const val = (document.getElementById(`prep-time-input`) as HTMLInputElement)?.value;
+                      if (!val || Number(val) <= 0) return toast.error("Enter a valid time in minutes");
+                      prepTimeMutation.mutate({ id: selectedOrder._id, time: Number(val) });
+                    }}
+                    disabled={prepTimeMutation.isPending}
+                    className="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-orange-600 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    Set Time
+                  </button>
+                </div>
               </div>
             )}
 

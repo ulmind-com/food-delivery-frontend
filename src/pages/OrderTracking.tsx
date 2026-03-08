@@ -533,6 +533,7 @@ const OrderTracking = () => {
 
     // ── Real-time status via Socket.IO ───────────────────────────────────
     const [liveStatus, setLiveStatus] = useState<string | null>(null);
+    const [livePrepTime, setLivePrepTime] = useState<number | null>(null);
     const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
 
     useEffect(() => {
@@ -542,6 +543,12 @@ const OrderTracking = () => {
         socket.on("orderStatusUpdated", (data: { orderId: string; status: string }) => {
             if (data.status) {
                 setLiveStatus(data.status.toUpperCase());
+                queryClient.invalidateQueries({ queryKey: ["order-detail", id] });
+            }
+        });
+        socket.on("preparationTimeUpdated", (data: { orderId: string; preparationTime: number }) => {
+            if (data.preparationTime !== undefined) {
+                setLivePrepTime(data.preparationTime);
                 queryClient.invalidateQueries({ queryKey: ["order-detail", id] });
             }
         });
@@ -618,6 +625,7 @@ const OrderTracking = () => {
     const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.PLACED;
     const StatusIcon = cfg.icon;
     const isActive = !["DELIVERED", "CANCELLED"].includes(status);
+    const currentPrepTime = livePrepTime !== null ? livePrepTime : order?.preparationTime;
 
     // ── Coordinate resolution (multiple fallback layers) ──────────────
     // 1. Top-level deliveryCoordinates field on the order (best case)
@@ -692,6 +700,12 @@ const OrderTracking = () => {
                             <h1 className="text-xl font-extrabold tracking-tight">{cfg.label}</h1>
                         </div>
                         <p className="text-sm text-white/80">{cfg.desc}</p>
+                        {status === "PREPARING" && currentPrepTime > 0 && (
+                            <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white/20 px-3 py-1 text-sm font-bold text-white shadow-sm backdrop-blur">
+                                <Clock className="h-4 w-4" />
+                                <span>Takes {currentPrepTime} mins</span>
+                            </div>
+                        )}
                         <p className="mt-2 text-xs text-white/60 font-mono">
                             {order.customId || `#${order._id?.slice(-6).toUpperCase()}`} · {formatDate(order.createdAt)}
                         </p>

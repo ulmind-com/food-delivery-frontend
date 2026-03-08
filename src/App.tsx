@@ -29,6 +29,7 @@ import { socket } from "./api/socket";
 import { toast } from "sonner";
 import { playChatSound } from "./lib/notification-sound";
 import CustomerChatDrawer from "./components/CustomerChatDrawer";
+import VlogGallery from "./pages/VlogGallery";
 
 // Dynamically set favicon from a URL
 const setFavicon = (url: string) => {
@@ -207,6 +208,7 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
+        <Route path="/vlogs" element={<VlogGallery />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Footer />

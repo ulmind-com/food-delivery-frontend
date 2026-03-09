@@ -196,7 +196,13 @@ export const useCartStore = create<CartState>()((set, get) => ({
       nextItems = [...prev, { ...product, price: Number(product.price) || 0, itemId: "", quantity: 1 }];
     }
     const optimisticPrices = getOptimisticPrices(nextItems, get());
-    set({ items: nextItems, ...optimisticPrices });
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
+
+    // Auto-open cart on desktop when adding items
+    const newState: Partial<CartState> = { items: nextItems, ...optimisticPrices };
+    if (isDesktop) newState.isOpen = true;
+
+    set(newState);
 
     try {
       await cartApi.add({ productId: product._id, quantity: 1 });

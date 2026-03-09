@@ -177,7 +177,7 @@ export function LocationPickerModal({
         if (!saveAddress) {
             const loc = {
                 type: "OTHER",
-                addressLine1: resolvedAddress.addressLine1 || resolvedAddress.displayName || "My Location",
+                addressLine1: resolvedAddress.displayName || resolvedAddress.addressLine1 || "My Location",
                 addressLine2: resolvedAddress.addressLine2 || "",
                 city: resolvedAddress.city || "",
                 state: resolvedAddress.state || "",
@@ -193,7 +193,7 @@ export function LocationPickerModal({
         try {
             const payload = {
                 type: "OTHER",
-                addressLine1: resolvedAddress.addressLine1 || resolvedAddress.displayName || "My Location",
+                addressLine1: resolvedAddress.displayName || resolvedAddress.addressLine1 || "My Location",
                 addressLine2: resolvedAddress.addressLine2 || "",
                 city: resolvedAddress.city || "",
                 state: resolvedAddress.state || "",
@@ -237,7 +237,7 @@ export function LocationPickerModal({
             const fallback: SavedAddress = {
                 _id: String(Date.now()),
                 type: "OTHER",
-                addressLine1: resolvedAddress.addressLine1 || resolvedAddress.displayName || "My Location",
+                addressLine1: resolvedAddress.displayName || resolvedAddress.addressLine1 || "My Location",
                 addressLine2: resolvedAddress.addressLine2 || "",
                 city: resolvedAddress.city || "",
                 state: resolvedAddress.state || "",

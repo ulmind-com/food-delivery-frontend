@@ -321,13 +321,13 @@ const RouteMap = ({ userLat, userLng, restaurantLat, restaurantLng, orderStatus 
 };
 
 /* ─── Status Stepper ────────────────────────────────────────────────────── */
-const StatusStepper = ({ status, reason }: { status: string; reason?: string }) => {
+const StatusStepper = ({ status, reason, refundStatus, refundProcessedAt }: { status: string; reason?: string; refundStatus?: string; refundProcessedAt?: string }) => {
     const isCancelled = status === "CANCELLED";
     const currentIdx = STATUS_STEPS.indexOf(status);
 
     if (isCancelled) {
         return (
-            <div className="flex flex-col gap-3 rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4">
+            <div className="flex flex-col gap-3 rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4 relative z-0">
                 <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white text-lg">❌</div>
                     <div>
@@ -338,6 +338,42 @@ const StatusStepper = ({ status, reason }: { status: string; reason?: string }) 
                 {reason && (
                     <div className="rounded-xl bg-red-100/50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
                         <span className="font-semibold">Reason:</span> {reason}
+                    </div>
+                )}
+
+                {/* Refund Status Timeline */}
+                {refundStatus && refundStatus !== 'NO_REFUND' && (
+                    <div className="mt-4 border-t border-red-200/50 dark:border-red-800/50 pt-6 relative">
+                        {/* Vertical connection line */}
+                        <div className="absolute left-[19px] top-[40px] h-[calc(100%-60px)] w-0.5 bg-border -z-10" />
+
+                        <div className="space-y-6">
+                            {/* Refund Initiated Step */}
+                            <div className="flex items-start gap-4">
+                                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-yellow-100 border-2 border-yellow-500 shadow-sm bg-card z-10">
+                                    <CreditCard className="h-4.5 w-4.5 text-yellow-600" />
+                                </div>
+                                <div className="pt-2 pb-1">
+                                    <p className="text-sm font-bold text-foreground">Refund Initiated</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Your refund request is being processed.</p>
+                                </div>
+                            </div>
+
+                            {/* Refund Processed Step */}
+                            <div className={`flex items-start gap-4 ${refundStatus !== 'PROCESSED' ? 'opacity-50' : ''}`}>
+                                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border-2 shadow-sm z-10 bg-card ${refundStatus === 'PROCESSED' ? 'border-green-500 bg-green-50' : 'border-border'}`}>
+                                    <CheckCircle className={`h-4.5 w-4.5 ${refundStatus === 'PROCESSED' ? 'text-green-600' : 'text-muted-foreground'}`} />
+                                </div>
+                                <div className="pt-2">
+                                    <p className="text-sm font-bold text-foreground">Refund Processed</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        {refundStatus === 'PROCESSED'
+                                            ? `Processed on ${formatDate(refundProcessedAt || new Date().toISOString())}. It may take 5-7 business days to reflect in your account.`
+                                            : "Awaiting manual processor..."}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
@@ -538,7 +574,7 @@ const OrderTracking = () => {
 
     useEffect(() => {
         if (!id) return;
-        const socket = io("https://food-delivery-backend-0aib.onrender.com", { transports: ["websocket", "polling"] });
+        const socket = io("https://food-delivery-app-backend-2ifj.onrender.com", { transports: ["websocket", "polling"] });
         socket.emit("joinOrder", id);
         socket.on("orderStatusUpdated", (data: { orderId: string; status: string }) => {
             if (data.status) {
@@ -549,6 +585,11 @@ const OrderTracking = () => {
         socket.on("preparationTimeUpdated", (data: { orderId: string; preparationTime: number }) => {
             if (data.preparationTime !== undefined) {
                 setLivePrepTime(data.preparationTime);
+                queryClient.invalidateQueries({ queryKey: ["order-detail", id] });
+            }
+        });
+        socket.on("refundStatusUpdated", (data: { orderId: string; refundStatus: string }) => {
+            if (data.refundStatus) {
                 queryClient.invalidateQueries({ queryKey: ["order-detail", id] });
             }
         });
@@ -828,7 +869,7 @@ const OrderTracking = () => {
                     <Package className="h-4 w-4 text-primary" />
                     <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Order Progress</h2>
                 </div>
-                <StatusStepper status={status} reason={order.cancellationReason} />
+                <StatusStepper status={status} reason={order.cancellationReason} refundStatus={order.refundStatus} refundProcessedAt={order.refundProcessedAt} />
             </motion.div>
 
             {/* ── Order Items ───────────────────────────────────────────── */}

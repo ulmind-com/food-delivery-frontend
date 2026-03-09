@@ -1,4 +1,4 @@
-const API_BASE_URL = "https://food-delivery-backend-0aib.onrender.com";
+const API_BASE_URL = "https://food-delivery-app-backend-2ifj.onrender.com";
 
 /**
  * Resolves an image URL — prepends the API base if the URL is relative,

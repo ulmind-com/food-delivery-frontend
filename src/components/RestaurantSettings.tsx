@@ -535,20 +535,7 @@ const RestaurantSettings = () => {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Max Radius (km)
-                </Label>
-                <Input
-                  type="number"
-                  value={form.deliveryRadius}
-                  onChange={(e) => setForm({ ...form, deliveryRadius: e.target.value })}
-                  placeholder="10"
-                  className="mt-1.5"
-                  min={1}
-                />
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Free Radius (km)

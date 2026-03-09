@@ -556,7 +556,9 @@ const CheckoutPage = () => {
                     {isLoading ? (
                       <div className="flex w-full items-center justify-center gap-2 py-1">
                         <Loader2 className="animate-spin h-5 w-5" />
-                        <span className="font-bold text-sm">Calculating...</span>
+                        <span className="font-bold text-sm">
+                          {isCartLoading ? "Preparing Cart..." : paymentLoading ? "Processing Payment..." : "Placing Order..."}
+                        </span>
                       </div>
                     ) : (
                       <>

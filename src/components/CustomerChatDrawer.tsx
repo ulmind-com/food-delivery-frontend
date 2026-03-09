@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { X, Send, MessageCircle, RefreshCw, CheckCheck, ChevronDown, ImagePlus, XCircle } from "lucide-react";
 import { playChatSound } from "@/lib/notification-sound";
 
-const SOCKET_URL = "https://food-delivery-backend-0aib.onrender.com";
+const SOCKET_URL = "https://food-delivery-app-backend-2ifj.onrender.com";
 
 interface Message {
     _id: string;

@@ -174,16 +174,26 @@ export const useCartStore = create<CartState>()((set, get) => ({
         taxBreakdown: bill.taxBreakdown || { cgstTotal: 0, sgstTotal: 0, igstTotal: 0 },
         appliedCoupon: bill.appliedCoupon || data.appliedCoupon || null,
       });
-    } catch {
-      // Silent fail — user might not be logged in
+    } catch (error) {
+      console.error("[useCartStore] Error fetching cart:", error);
+      // Fallback empty state on critical fetch failure so UI doesn't freeze with ghost items
+      set({ ...emptyCart });
     } finally {
       set({ isLoading: false });
     }
   },
 
   addItem: async (product) => {
-    // Optimistic: add locally with instant price update
     const prev = get().items;
+    
+    // Check if there is already an optimistic item for this product that hasn't synced yet (empty itemId)
+    const existingSyncing = prev.find((i) => i._id === product._id && i.variant === product.variant && !i.itemId);
+    if (existingSyncing) {
+        toast.info("Item is being added, please wait...");
+        return;
+    }
+
+    // Optimistic: add locally with instant price update
     const existing = prev.find((i) => i._id === product._id && i.variant === product.variant);
     let nextItems: CartItem[];
     if (existing) {
@@ -217,6 +227,12 @@ export const useCartStore = create<CartState>()((set, get) => ({
     const prev = get().items;
     const item = prev.find((i) => i.itemId === itemId);
     if (!item) return;
+    
+    // Prevent updating if the item is still syncing from an add
+    if (!item.itemId) {
+        toast.info("Please wait a moment for the item to sync...");
+        return;
+    }
 
     // Optimistic with instant price
     const nextItems = prev.map((i) => (i.itemId === itemId ? { ...i, quantity: i.quantity + 1 } : i));
@@ -237,6 +253,12 @@ export const useCartStore = create<CartState>()((set, get) => ({
     const item = prev.find((i) => i.itemId === itemId);
     if (!item) return;
 
+    // Prevent updating if the item is still syncing from an add
+    if (!item.itemId) {
+        toast.info("Please wait a moment for the item to sync...");
+        return;
+    }
+
     if (item.quantity <= 1) {
       return get().removeItem(itemId);
     }
@@ -256,6 +278,11 @@ export const useCartStore = create<CartState>()((set, get) => ({
   },
 
   removeItem: async (itemId) => {
+    if (!itemId) {
+        toast.info("Item is still syncing, please wait...");
+        return;
+    }
+
     const prev = get().items;
     const nextItems = prev.filter((i) => i.itemId !== itemId);
     const optimisticPrices = getOptimisticPrices(nextItems, get());

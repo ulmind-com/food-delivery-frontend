@@ -154,15 +154,15 @@ export default function AddressesPage() {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, x: -20 }}
-                                            className={`relative rounded-2xl border-2 bg-card p-4 transition-all ${isSelected
-                                                ? "border-primary shadow-md shadow-primary/10"
+                                            className={`relative rounded-xl border px-3 py-3 transition-all ${isSelected
+                                                ? "border-primary bg-primary/5 shadow-sm"
                                                 : "border-border hover:border-primary/30"
                                                 }`}
                                         >
                                             {/* Selected indicator */}
                                             {isSelected && (
-                                                <div className="absolute right-4 top-4">
-                                                    <CheckCircle2 className="h-5 w-5 text-primary" />
+                                                <div className="absolute right-3 top-3">
+                                                    <CheckCircle2 className="h-4 w-4 text-primary" />
                                                 </div>
                                             )}
 
@@ -171,28 +171,30 @@ export default function AddressesPage() {
                                                 className="flex w-full items-start gap-3 text-left"
                                             >
                                                 {/* Type Icon */}
-                                                <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${TYPE_COLORS[addr.type] || TYPE_COLORS.OTHER}`}>
-                                                    <Icon className="h-5 w-5" />
+                                                <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${TYPE_COLORS[addr.type] || TYPE_COLORS.OTHER}`}>
+                                                    <Icon className="h-4 w-4" />
                                                 </div>
 
                                                 {/* Address Details */}
-                                                <div className="flex-1 pr-6">
+                                                <div className="flex-1 pr-6 pt-0.5">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                                        <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
                                                             {addr.type}
                                                         </span>
                                                     </div>
-                                                    <p className="mt-0.5 font-semibold text-foreground leading-snug">
+                                                    <p className="mt-1 text-[13px] font-bold text-foreground leading-tight">
                                                         {addr.addressLine1}
                                                     </p>
                                                     {addr.addressLine2 && (
-                                                        <p className="text-sm text-muted-foreground">{addr.addressLine2}</p>
+                                                        <p className="text-xs text-muted-foreground mt-0.5">{addr.addressLine2}</p>
                                                     )}
-                                                    <p className="text-sm text-muted-foreground">
+                                                    <p className="text-xs text-muted-foreground mt-0.5 max-w-[90%]">
                                                         {[addr.city, addr.state, addr.postalCode].filter(Boolean).join(", ")}
                                                     </p>
                                                     {addr.mobile && (
-                                                        <p className="mt-1 text-xs text-muted-foreground">📞 {addr.mobile}</p>
+                                                        <p className="mt-1.5 text-xs text-foreground font-medium flex items-center gap-1">
+                                                            <span className="text-muted-foreground">📞</span> {addr.mobile}
+                                                        </p>
                                                     )}
                                                 </div>
                                             </button>

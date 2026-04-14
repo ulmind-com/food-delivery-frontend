@@ -85,6 +85,7 @@ function InlineVideoPlayer({ src, thumbnail, title, onView, vlogId }: { src: str
                 poster={thumbnail || undefined}
                 className="w-full aspect-[4/5] object-cover"
                 loop
+                autoPlay
                 muted={isMuted}
                 playsInline
                 preload="metadata"

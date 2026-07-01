@@ -51,7 +51,7 @@ export const authApi = {
 export const userApi = {
   getProfile: () => api.get("/users/profile"),
   updateProfile: (data: { name?: string; mobile?: string; address?: string; profileImage?: string }) => api.put("/users/profile", data),
-  getAll: () => api.get("/users"),
+  getAll: (params?: any) => api.get("/users", { params }),
   updateUser: (id: string, data: { role?: string; isActive?: boolean; isCodDisabled?: boolean }) => api.put(`/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`/users/${id}`),
   getAddresses: () => api.get("/users/addresses"),
@@ -164,7 +164,7 @@ export const couponApi = {
 export const reviewApi = {
   add: (data: { orderId: string; rating: number; comment: string }) => api.post("/reviews", data),
   getStats: () => api.get("/reviews/stats"),
-  getAdminReviews: () => api.get("/reviews/admin"),
+  getAdminReviews: (params?: any) => api.get("/reviews/admin", { params }),
   getMyReviews: () => api.get("/reviews/my-reviews"),
 };
 
@@ -203,7 +203,7 @@ export const uploadApi = {
 // ─── Admin ──────────────────────────────────
 export const adminApi = {
   getDashboard: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/dashboard", { params }),
-  getOrders: () => api.get("/admin/orders"),
+  getOrders: (params?: any) => api.get("/admin/orders", { params }),
   getOrdersByStatus: (status: string) => api.get(`/admin/orders/${status}`),
   getAnalytics: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/analytics", { params }),
   getMapAnalytics: (params?: { startDate?: string; endDate?: string }) => api.get("/admin/analytics/map", { params }),
@@ -219,7 +219,7 @@ export const adminApi = {
   // POS (Offline Billing)
   createPOSOrder: (data: { items: any[]; customerName?: string; customerMobile?: string; paymentMethod: string }) =>
     api.post("/admin/pos/create", data),
-  getPOSOrders: () => api.get("/admin/pos/orders"),
+  getPOSOrders: (params?: any) => api.get("/admin/pos/orders", { params }),
 };
 
 // ─── Chat ────────────────────────────────────
@@ -244,7 +244,7 @@ export const vlogApi = {
   getPublicVlogs: () => api.get("/vlogs"),
   incrementView: (id: string) => api.put(`/vlogs/${id}/view`),
   // Admin
-  getAdminVlogs: () => api.get("/vlogs/admin"),
+  getAdminVlogs: (params?: any) => api.get("/vlogs/admin", { params }),
   createVlog: (data: any) => api.post("/vlogs", data),
   updateVlog: (id: string, data: any) => api.put(`/vlogs/${id}`, data),
   deleteVlog: (id: string) => api.delete(`/vlogs/${id}`),

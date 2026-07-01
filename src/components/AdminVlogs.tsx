@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { vlogApi, uploadApi } from '@/api/axios';
+import { useInfiniteList } from '@/hooks/useInfiniteList';
+import LoadMore from '@/components/LoadMore';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, Eye, EyeOff, Film, Image as ImageIcon, Upload, X, Loader2, Play, Volume2, VolumeX } from 'lucide-react';
@@ -75,13 +77,13 @@ export default function AdminVlogs() {
     const [thumbnailUrl, setThumbnailUrl] = useState('');
     const [previewVlog, setPreviewVlog] = useState<any>(null);
 
-    const { data: vlogs = [], isLoading } = useQuery({
-        queryKey: ['admin-vlogs'],
-        queryFn: async () => {
-            const res = await vlogApi.getAdminVlogs();
-            return res.data;
-        },
-    });
+    const {
+        items: vlogs,
+        isLoading,
+        hasNextPage,
+        isFetchingNextPage,
+        fetchNextPage,
+    } = useInfiniteList<any>(['admin-vlogs'], (p) => vlogApi.getAdminVlogs(p));
 
     const createMutation = useMutation({
         mutationFn: vlogApi.createVlog,
@@ -255,6 +257,8 @@ export default function AdminVlogs() {
                     ))}
                 </div>
             )}
+
+            <LoadMore hasMore={!!hasNextPage} isFetching={isFetchingNextPage} onLoad={fetchNextPage} />
 
             {/* Preview Modal */}
             <AnimatePresence>

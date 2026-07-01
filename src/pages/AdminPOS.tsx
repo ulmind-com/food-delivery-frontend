@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { menuApi, adminApi, restaurantApi } from '@/api/axios';
+import { useInfiniteList } from '@/hooks/useInfiniteList';
+import LoadMore from '@/components/LoadMore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Minus, Trash2, Printer, Receipt, ChefHat, Percent, Tag } from 'lucide-react';
 import { toast } from 'sonner';
@@ -642,13 +644,13 @@ export default function AdminPOS() {
 }
 
 function POSHistory({ onReprint }: { onReprint: (order: any) => void }) {
-    const { data: records = [], isLoading } = useQuery({
-        queryKey: ['admin-pos-orders'],
-        queryFn: async () => {
-            const res = await adminApi.getPOSOrders();
-            return res.data;
-        }
-    });
+    const {
+        items: records,
+        isLoading,
+        hasNextPage,
+        isFetchingNextPage,
+        fetchNextPage,
+    } = useInfiniteList<any>(['admin-pos-orders'], (p) => adminApi.getPOSOrders(p));
 
     if (isLoading) {
         return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading POS History...</div>;
@@ -698,6 +700,7 @@ function POSHistory({ onReprint }: { onReprint: (order: any) => void }) {
                             </div>
                         </div>
                     ))}
+                    <LoadMore hasMore={!!hasNextPage} isFetching={isFetchingNextPage} onLoad={fetchNextPage} />
                 </div>
             )}
         </div>

@@ -4,6 +4,8 @@ import { Star, MessageSquare, TrendingUp, Users } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+import LoadMore from "@/components/LoadMore";
 
 const AdminReviews = () => {
     const { data: stats, isLoading: statsLoading } = useQuery({
@@ -11,10 +13,13 @@ const AdminReviews = () => {
         queryFn: () => reviewApi.getStats().then((r) => r.data),
     });
 
-    const { data: reviews, isLoading: reviewsLoading } = useQuery({
-        queryKey: ["admin-reviews"],
-        queryFn: () => reviewApi.getAdminReviews().then((r) => r.data),
-    });
+    const {
+        items: reviews,
+        isLoading: reviewsLoading,
+        hasNextPage,
+        isFetchingNextPage,
+        fetchNextPage,
+    } = useInfiniteList<any>(["admin-reviews"], (p) => reviewApi.getAdminReviews(p));
 
     const isLoading = statsLoading || reviewsLoading;
 
@@ -152,6 +157,7 @@ const AdminReviews = () => {
                         </table>
                     )}
                 </div>
+                <LoadMore hasMore={!!hasNextPage} isFetching={isFetchingNextPage} onLoad={fetchNextPage} />
             </div>
         </div>
     );

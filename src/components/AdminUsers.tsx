@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { userApi } from "@/api/axios";
+import { useInfiniteList } from "@/hooks/useInfiniteList";
+import LoadMore from "@/components/LoadMore";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Trash2, Users, AlertTriangle, Phone, Mail, MapPin, Eye, X } from "lucide-react";
@@ -31,26 +33,27 @@ const AdminUsers = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [viewUser, setViewUser] = useState<any>(null);
 
-  const { data: users = [], isLoading } = useQuery({
-    queryKey: ["admin-users"],
-    queryFn: () => userApi.getAll().then((r) => r.data),
-  });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const {
+    items: users,
+    isLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteList<any>(["admin-users", debouncedSearch], (p) =>
+    userApi.getAll({ ...p, search: debouncedSearch || undefined })
+  );
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { role?: string; isActive?: boolean; isCodDisabled?: boolean } }) =>
       userApi.updateUser(id, data),
-    onMutate: async ({ id, data }) => {
-      await queryClient.cancelQueries({ queryKey: ["admin-users"] });
-      const prev = queryClient.getQueryData(["admin-users"]);
-      queryClient.setQueryData(["admin-users"], (old: any[]) =>
-        old?.map((u: any) => (u._id === id ? { ...u, ...data } : u))
-      );
-      return { prev };
-    },
-    onError: (_err, _vars, ctx) => {
-      queryClient.setQueryData(["admin-users"], ctx?.prev);
-      toast.error("Failed to update user");
-    },
+    onError: () => toast.error("Failed to update user"),
+    // Refetch the (infinite) list after the change — safe with paginated cache
     onSettled: () => queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
   });
 
@@ -64,11 +67,8 @@ const AdminUsers = () => {
     onError: () => toast.error("Failed to delete user"),
   });
 
-  const filtered = (Array.isArray(users) ? users : []).filter(
-    (u: any) =>
-      u.name?.toLowerCase().includes(search.toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  // Search is applied server-side (debouncedSearch is part of the query key)
+  const filtered = Array.isArray(users) ? users : [];
 
   return (
     <div>
@@ -232,6 +232,7 @@ const AdminUsers = () => {
             </tbody>
           </table>
         </div>
+        <LoadMore hasMore={!!hasNextPage} isFetching={isFetchingNextPage} onLoad={fetchNextPage} />
       </div>
 
       {/* User Detail Modal */}

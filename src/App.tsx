@@ -4,8 +4,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
+import MenuPage from "./pages/MenuPage";
+import AboutPage from "./pages/AboutPage";
+import OffersPage from "./pages/OffersPage";
+import ContactPage from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 import UserProfile from "./pages/UserProfile";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -40,6 +44,15 @@ const setFavicon = (url: string) => {
     document.head.appendChild(link);
   }
   link.href = url;
+};
+
+/** Jump to the top on every navigation — long pages otherwise keep their scroll. */
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [pathname]);
+  return null;
 };
 
 const queryClient = new QueryClient({
@@ -158,8 +171,13 @@ const AppContent = () => {
       <CartBar />
       <AuthModal />
       <CustomerChatDrawer isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Index />} />
+        <Route path="/menu" element={<MenuPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/offers" element={<OffersPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route
           path="/profile"
           element={

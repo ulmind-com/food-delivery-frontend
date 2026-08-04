@@ -15,8 +15,17 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        // Marhaba-style restaurant theme used by the homepage sections
+        serif: ["'Playfair Display'", "Georgia", "serif"],
+        body: ["Jost", "Inter", "system-ui", "sans-serif"],
       },
       colors: {
+        // Alternating homepage section surfaces, theme-aware
+        band: {
+          DEFAULT: "hsl(var(--band))",
+          foreground: "hsl(var(--band-foreground))",
+        },
+        "surface-alt": "hsl(var(--surface-alt))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -92,12 +101,19 @@ export default {
           "0%": { opacity: "0", transform: "translateY(20px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        // Seamless ticker: the track holds two identical copies, so shifting
+        // exactly half its width loops without a visible seam.
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.4s ease-out",
         "slide-up": "slide-up 0.5s ease-out",
+        marquee: "marquee 28s linear infinite",
       },
     },
   },

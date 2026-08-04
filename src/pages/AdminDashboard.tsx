@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, UtensilsCrossed, Layers, ClipboardList, BarChart3,
   DollarSign, ShoppingBag, TrendingUp, Package, Plus, Menu, X, Settings, Tag, Users,
-  PieChart as PieChartIcon, MessageSquare, Printer, Map as MapIcon, Film,
+  PieChart as PieChartIcon, MessageSquare, Printer, Map as MapIcon, Film, Images,
 } from "lucide-react";
 import AdminMenuTable from "@/components/AdminMenuTable";
 import CategoryManager from "@/components/CategoryManager";
@@ -25,10 +25,11 @@ import HeroVideoManager from "@/components/HeroVideoManager";
 import AdminMapAnalytics from "@/components/AdminMapAnalytics";
 import AdminPOS from "./AdminPOS";
 import AdminVlogs from "@/components/AdminVlogs";
+import AdminGalleryManager from "@/components/AdminGalleryManager";
 
-type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "map" | "coupons" | "settings" | "users" | "reviews" | "chat" | "videos" | "billing" | "vlogs";
+type AdminTab = "dashboard" | "menu" | "categories" | "orders" | "analytics" | "map" | "coupons" | "settings" | "users" | "reviews" | "chat" | "videos" | "billing" | "vlogs" | "gallery";
 
-const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "map", "coupons", "settings", "users", "reviews", "chat", "videos", "billing", "vlogs"];
+const VALID_TABS: AdminTab[] = ["dashboard", "menu", "categories", "orders", "analytics", "map", "coupons", "settings", "users", "reviews", "chat", "videos", "billing", "vlogs", "gallery"];
 
 const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -42,6 +43,7 @@ const sidebarLinks: { key: AdminTab; label: string; icon: any }[] = [
   { key: "users", label: "Users", icon: Users },
   { key: "orders", label: "Orders", icon: ClipboardList },
   { key: "videos", label: "Hero Videos", icon: Package },
+  { key: "gallery", label: "Gallery Photos", icon: Images },
   { key: "vlogs", label: "Vlogs / Gallery", icon: Film },
   { key: "chat", label: "Chat", icon: MessageSquare },
   { key: "settings", label: "Settings", icon: Settings },
@@ -220,6 +222,8 @@ const AdminDashboard = () => {
         return <AdminPOS />;
       case "vlogs":
         return <AdminVlogs />;
+      case "gallery":
+        return <AdminGalleryManager />;
       default:
         return null;
     }

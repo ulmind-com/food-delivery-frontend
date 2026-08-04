@@ -1,14 +1,21 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Search, ArrowRight, Zap, ChevronRight } from "lucide-react";
-import { menuApi, restaurantApi } from "@/api/axios";
+import { Search, ArrowRight } from "lucide-react";
+import { menuApi, restaurantApi, vlogApi } from "@/api/axios";
 import { useAuthStore } from "@/store/useAuthStore";
 import ProductCard from "@/components/ProductCard";
-import CategoryCarousel from "@/components/CategoryCarousel";
-import { SkeletonCard, SkeletonCategory } from "@/components/Skeletons";
+import SectionHeading from "@/components/SectionHeading";
+import { SkeletonCard } from "@/components/Skeletons";
 import { resolveImageURL } from "@/lib/image-utils";
 
+import DishMarquee from "@/components/home/DishMarquee";
+import AboutStory from "@/components/home/AboutStory";
+import FeatureBand from "@/components/home/FeatureBand";
+import MenuCarousel from "@/components/home/MenuCarousel";
+import WhyChooseUs from "@/components/home/WhyChooseUs";
+import GalleryGrid, { GalleryItem } from "@/components/home/GalleryGrid";
+import OrderCta from "@/components/home/OrderCta";
 
 const PLACEHOLDER_TEXTS = [
   "Search for Biryani...",
@@ -27,7 +34,6 @@ const FALLBACK_VIDEOS = ["/burger.mp4", "/icecream.mp4", "/coocking.mp4"];
 const Index = () => {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [category, setCategory] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
   const [placeholder, setPlaceholder] = useState(PLACEHOLDER_TEXTS[0]);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -98,7 +104,7 @@ const Index = () => {
     }
   };
 
-  const { data: categories, isLoading: catLoading } = useQuery({
+  const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: () => menuApi.getCategories().then((r) => r.data),
   });
@@ -107,6 +113,21 @@ const Index = () => {
   const { data: heroVideosData } = useQuery({
     queryKey: ["hero-videos"],
     queryFn: () => restaurantApi.getVideos().then((r) => r.data.videos as string[]),
+  });
+
+  // Gallery imagery for the story + moments sections
+  const { data: vlogs } = useQuery({
+    queryKey: ["vlogs", "public"],
+    queryFn: () => vlogApi.getPublicVlogs().then((r) => r.data),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Admin-uploaded gallery images (highest priority for home page gallery)
+  const { data: galleryImagesData } = useQuery({
+    queryKey: ["gallery-images"],
+    queryFn: () =>
+      restaurantApi.getGallery().then((r) => r.data.images as string[]),
+    staleTime: 1000 * 60 * 5,
   });
 
   // Admin videos are ALWAYS shown first.
@@ -119,25 +140,15 @@ const Index = () => {
     return [...cloudinary, ...shuffled.slice(0, needed)]; // admin first, fallback fills the rest
   }, [heroVideosData]);
 
-
-
   /* ──────────────── Menu Fetching Logic ──────────────── */
-  // Per user request, we use specific endpoints based on interaction
   const { data: rawMenuItems, isLoading: menuLoading } = useQuery({
-    queryKey: ["menu", category, vegOnly, debouncedSearch],
+    queryKey: ["menu", vegOnly, debouncedSearch],
     queryFn: async () => {
-      if (category) {
-        const res = await menuApi.getCategoryById(category);
-        let products = res.data.products || [];
-        if (vegOnly) products = products.filter((p: any) => p.type === "Veg");
-        return products;
-      } else {
-        const res = await menuApi.getMenu({
-          type: vegOnly ? "Veg" : undefined,
-          search: debouncedSearch || undefined,
-        });
-        return res.data;
-      }
+      const res = await menuApi.getMenu({
+        type: vegOnly ? "Veg" : undefined,
+        search: debouncedSearch || undefined,
+      });
+      return res.data;
     },
   });
 
@@ -148,6 +159,54 @@ const Index = () => {
       p.name.toLowerCase().includes(search.toLowerCase())
     )
     : rawMenuItems;
+
+  /** Resolve a bare category id into the populated category object. */
+  const withCategory = (item: any) => {
+    if (typeof item.category === "string" && categories) {
+      const found = categories.find((c: any) => c._id === item.category);
+      if (found) return { ...item, category: found };
+    }
+    return item;
+  };
+
+  /* ── Imagery for the story + gallery, admin gallery first then vlogs then dish photos ── */
+  const galleryItems: GalleryItem[] = useMemo(() => {
+    // Priority 1: Admin-uploaded gallery images
+    const fromAdmin = (galleryImagesData || []).map((url: string, i: number) => ({
+      id: `gallery-${i}`,
+      src: url,
+      title: undefined,
+    }));
+
+    // Priority 2: Vlog images
+    const fromVlogs = (vlogs || [])
+      .filter((v: any) => v.mediaType === "IMAGE" || v.thumbnailUrl)
+      .map((v: any) => ({
+        id: v._id,
+        src: resolveImageURL(v.mediaType === "IMAGE" ? v.mediaUrl : v.thumbnailUrl),
+        title: v.title,
+      }));
+
+    // Priority 3: Menu item photos (fallback)
+    const fromMenu = (rawMenuItems || [])
+      .filter((p: any) => p.imageURL || p.image)
+      .map((p: any) => ({
+        id: `menu-${p._id}`,
+        src: resolveImageURL(p.imageURL || p.image),
+        title: p.name,
+      }));
+
+    // De-duplicate by src so a dish photo reused in the gallery doesn't repeat
+    const seen = new Set<string>();
+    return [...fromAdmin, ...fromVlogs, ...fromMenu].filter((g) => {
+      if (!g.src || seen.has(g.src)) return false;
+      seen.add(g.src);
+      return true;
+    });
+  }, [galleryImagesData, vlogs, rawMenuItems]);
+
+  const categoryNames = (categories || []).map((c: any) => c.name);
+  const isSearching = search.trim().length > 0;
 
   // Admin users go to /admin — this page is customer-only
   if (isAdminUser) {
@@ -220,11 +279,7 @@ const Index = () => {
             <input
               type="text"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                // Clear category filter when user starts searching
-                if (e.target.value) setCategory("");
-              }}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder={placeholder}
               className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
             />
@@ -242,127 +297,58 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Categories — hidden when user is searching */}
-      {!search && (
-        <section className="container mx-auto px-4 pt-8 pb-4">
-          <h2 className="mb-5 text-lg font-bold text-foreground">What's on your mind?</h2>
-          {catLoading ? (
-            <div className="flex gap-6 overflow-hidden">
+      {isSearching ? (
+        /* ── Search results take over the page while the hero search is in use ── */
+        <section className="container mx-auto px-4 py-12">
+          <SectionHeading
+            align="left"
+            eyebrow="Search"
+            title={`Results for "${search}"`}
+            action={
+              <button
+                onClick={() => setSearch("")}
+                className="rounded-full border border-border px-4 py-2 text-[13px] font-bold text-foreground transition-colors hover:bg-accent"
+              >
+                Clear search
+              </button>
+            }
+          />
+
+          {menuLoading ? (
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {Array.from({ length: 8 }).map((_, i) => (
-                <SkeletonCategory key={i} />
+                <SkeletonCard key={i} />
               ))}
             </div>
+          ) : menuItems?.length === 0 ? (
+            <div className="py-20 text-center">
+              <p className="text-5xl">🍽️</p>
+              <p className="mt-3 text-sm font-semibold text-muted-foreground">
+                Nothing matches “{search}”
+              </p>
+            </div>
           ) : (
-            <CategoryCarousel
-              categories={categories || []}
-              selected={category}
-              onSelect={setCategory}
-            />
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+              {menuItems?.map((item: any) => (
+                <ProductCard key={item._id} item={withCategory(item)} />
+              ))}
+            </div>
           )}
         </section>
+      ) : (
+        <>
+          <DishMarquee items={categoryNames} />
+          <AboutStory images={galleryItems.slice(0, 2).map((g) => g.src)} />
+          <FeatureBand
+            dishCount={(rawMenuItems || []).length}
+            categoryCount={(categories || []).length}
+          />
+          <MenuCarousel categories={categories || []} />
+          <WhyChooseUs />
+          <GalleryGrid items={galleryItems} />
+          <OrderCta />
+        </>
       )}
-
-      {/* Divider — hidden when searching */}
-      {!search && (
-        <div className="container mx-auto px-4">
-          <div className="border-t border-border" />
-        </div>
-      )}
-
-      {/* ── Today's Deals Section ─────────────────────────────────────── */}
-      {!search && !category && (() => {
-        const dealItems = (rawMenuItems || []).filter((p: any) => p.hasDiscount && p.originalPrice);
-        if (dealItems.length === 0) return null;
-        return (
-          <section className="container mx-auto px-4 pt-8 pb-2">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-500 shadow-md">
-                  <Zap className="h-4 w-4 text-white" fill="white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-extrabold text-foreground leading-tight">Today's Deals</h2>
-                  <p className="text-[11px] text-muted-foreground">Limited time offers on your favourites</p>
-                </div>
-              </div>
-              <span className="text-xs font-bold text-primary flex items-center gap-0.5">
-                {dealItems.length} offers <ChevronRight className="h-3 w-3" />
-              </span>
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 scroll-smooth no-scrollbar">
-              {dealItems.map((item: any) => {
-                let effectiveItem = item;
-                if (typeof item.category === "string" && categories) {
-                  const foundCat = categories.find((c: any) => c._id === item.category);
-                  if (foundCat) {
-                    effectiveItem = { ...item, category: foundCat };
-                  }
-                }
-
-                return (
-                  <div key={`deal-${item._id}`} className="flex-shrink-0 w-[85vw] sm:w-[320px] pb-4">
-                    <ProductCard item={effectiveItem} />
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="border-t border-border" />
-          </section>
-        );
-      })()}
-
-      {/* Menu Grid */}
-      <section className="container mx-auto px-4 pt-10 pb-8">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">
-            {category
-              ? `${categories?.find((c: any) => c._id === category)?.name || "Category"}`
-              : search
-                ? `Results for "${search}"`
-                : "Our Menu"}
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            {menuItems?.length || 0} items
-          </span>
-        </div>
-
-        {menuLoading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
-        ) : menuItems?.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="py-20 text-center"
-          >
-            <p className="text-4xl">🍽️</p>
-            <p className="mt-3 text-sm font-medium text-muted-foreground">No items found</p>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          >
-            {menuItems?.map((item: any) => {
-              // Fix: If category is just an ID (string), look it up from cached categories to show Name instead of ID
-              let effectiveItem = item;
-              if (typeof item.category === "string" && categories) {
-                const foundCat = categories.find((c: any) => c._id === item.category);
-                if (foundCat) {
-                  effectiveItem = { ...item, category: foundCat };
-                }
-              }
-              return <ProductCard key={item._id} item={effectiveItem} />;
-            })}
-          </motion.div>
-        )}
-      </section>
 
       {/* Review Modal Prompt */}
       {pendingReviewOrder && (

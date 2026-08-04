@@ -1,7 +1,7 @@
 import axios from "axios";
 import { toast } from "sonner";
 
-const API_BASE_URL = "https://food-delivery-backend-173b.onrender.com/api";
+const API_BASE_URL = "http://localhost:5001/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -74,6 +74,12 @@ export const restaurantApi = {
   getVideos: () => api.get("/restaurant/videos"),
   addVideo: (data: { url: string }) => api.post("/restaurant/videos", data),
   deleteVideo: (index: number) => api.delete(`/restaurant/videos/${index}`),
+  // Gallery images
+  getGallery: () => api.get("/restaurant/gallery"),
+  addGalleryImage: (data: { url: string }) => api.post("/restaurant/gallery", data),
+  addGalleryImages: (data: { urls: string[] }) => api.post("/restaurant/gallery", data),
+  deleteGalleryImage: (index: number) => api.delete(`/restaurant/gallery/${index}`),
+  reorderGallery: (data: { images: string[] }) => api.put("/restaurant/gallery/reorder", data),
 };
 
 // ─── Menu & Categories ──────────────────────
